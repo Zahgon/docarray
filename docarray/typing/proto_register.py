@@ -53,5 +53,10 @@ def _register_proto(
             f'the key {proto_type_name} is already registered in the global registry'
         )
 
+    def _register(cls: Type[T]) -> Type[T]:
+        cls._proto_type_name = proto_type_name
+
+        _PROTO_TYPE_NAME_TO_CLASS[proto_type_name] = cls
+        return cls
 
     return _register
