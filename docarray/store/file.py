@@ -41,11 +41,7 @@ class FileDocStore(AbstractDocStore):
             If it is a path, it is resolved to an absolute path.
         :return: Path
         """
-        if not (name.startswith('/') or name.startswith('~') or name.startswith('.')):
-            name = str(_get_cache_path() / name)
-        if name.startswith('~'):
-            name = str(Path.home() / name[2:])
-        return Path(name).resolve()
+        pass
 
     @classmethod
     def list(
@@ -57,37 +53,7 @@ class FileDocStore(AbstractDocStore):
         :param show_table: If True, print a table of the files in the directory.
         :return: A list of the names of the `DocLists` in the directory.
         """
-        namespace_dir = cls._abs_filepath(namespace)
-        if not namespace_dir.exists():
-            raise FileNotFoundError(f'Directory {namespace} does not exist')
-        da_files = [dafile for dafile in namespace_dir.glob('*.docs')]
-
-        if show_table:
-            from datetime import datetime
-
-            from rich import box, filesize
-            from rich.console import Console
-            from rich.table import Table
-
-            table = Table(
-                title=f'You have {len(da_files)} DocLists in file://{namespace_dir}',
-                box=box.SIMPLE,
-                highlight=True,
-            )
-            table.add_column('Name')
-            table.add_column('Last Modified', justify='center')
-            table.add_column('Size')
-
-            for da_file in da_files:
-                table.add_row(
-                    da_file.stem,
-                    str(datetime.fromtimestamp(int(da_file.stat().st_ctime))),
-                    str(filesize.decimal(da_file.stat().st_size)),
-                )
-
-            Console().print(table)
-
-        return [dafile.stem for dafile in da_files]
+        pass
 
     @classmethod
     def delete(
@@ -99,14 +65,7 @@ class FileDocStore(AbstractDocStore):
         :param missing_ok: If True, do not raise an exception if the file does not exist. Defaults to False.
         :return: True if the file was deleted, False if it did not exist.
         """
-        path = cls._abs_filepath(name)
-        try:
-            path.with_suffix('.docs').unlink()
-            return True
-        except FileNotFoundError:
-            if not missing_ok:
-                raise
-        return False
+        pass
 
     @classmethod
     def push(
@@ -121,7 +80,7 @@ class FileDocStore(AbstractDocStore):
         :param name: The file path to push to.
         :param show_progress: If true, a progress bar will be displayed.
         """
-        return cls.push_stream(iter(docs), name, show_progress)
+        pass
 
     @classmethod
     def push_stream(
@@ -136,20 +95,7 @@ class FileDocStore(AbstractDocStore):
         :param name: The file path to push to.
         :param show_progress: If true, a progress bar will be displayed.
         """
-        source = _to_binary_stream(
-            docs, protocol='protobuf', compress='gzip', show_progress=show_progress
-        )
-        path = cls._abs_filepath(name).with_suffix('.docs.tmp')
-        if path.exists():
-            raise ConcurrentPushException(f'File {path} already exists.')
-        with open(path, 'wb') as f:
-            while True:
-                try:
-                    f.write(next(source))
-                except StopIteration:
-                    break
-        path.rename(path.with_suffix(''))
-        return {}
+        pass
 
     @classmethod
     def pull(
@@ -166,12 +112,7 @@ class FileDocStore(AbstractDocStore):
         :param local_cache: store the downloaded `DocList` to local folder
         :return: a `DocList` object
         """
-
-        return docs_cls(
-            cls.pull_stream(
-                docs_cls, name, show_progress=show_progress, local_cache=local_cache
-            )
-        )
+        pass
 
     @classmethod
     def pull_stream(
@@ -188,16 +129,4 @@ class FileDocStore(AbstractDocStore):
         :param local_cache: Not used by the ``file`` protocol.
         :return: Iterator of Documents
         """
-
-        if local_cache:
-            logging.warning('local_cache is not supported for "file" protocol')
-
-        path = cls._abs_filepath(name).with_suffix('.docs')
-        source = open(path, 'rb')
-        return _from_binary_stream(
-            docs_cls.doc_type,
-            source,
-            protocol='protobuf',
-            compress='gzip',
-            show_progress=show_progress,
-        )
+        pass

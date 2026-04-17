@@ -446,9 +446,7 @@ class IOMixinDocVec(IOMixinDocList):
         :return: `DocList` where each Document contains the information of one
             corresponding row of the `pandas.DataFrame`.
         """
-        # type ignore could be avoided by simply putting this implementation in the DocVec class
-        # but leaving it here for code separation
-        return cls(super().from_dataframe(df), tensor_type=tensor_type)  # type: ignore
+        pass
 
     @classmethod
     def load_binary(
@@ -481,27 +479,4 @@ class IOMixinDocVec(IOMixinDocList):
         :return: a `DocVec` object
 
         """
-        file_ctx, load_protocol, load_compress = cls._get_file_context(
-            file, protocol, compress
-        )
-        if streaming:
-            if load_protocol not in SINGLE_PROTOCOLS:
-                raise ValueError(
-                    f'`streaming` is only available when using {" or ".join(map(lambda x: f"`{x}`", SINGLE_PROTOCOLS))} as protocol, '
-                    f'got {load_protocol}'
-                )
-            else:
-                return cls._load_binary_stream(
-                    file_ctx,
-                    protocol=load_protocol,
-                    compress=load_compress,
-                    show_progress=show_progress,
-                )
-        else:
-            return cls._load_binary_all(
-                file_ctx,
-                load_protocol,
-                load_compress,
-                show_progress,
-                tensor_type=tensor_type,
-            )
+        pass

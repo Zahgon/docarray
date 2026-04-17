@@ -51,21 +51,4 @@ class PointsAndColors(BaseDoc):
         """
         Plot point cloud consisting of points in 3D space and optionally colors.
         """
-        if TYPE_CHECKING:
-            import trimesh
-        else:
-            trimesh = import_library('trimesh', raise_error=True)
-        from IPython.display import display
-
-        colors = (
-            self.colors
-            if self.colors is not None
-            else np.tile(
-                np.array([0, 0, 0]),
-                (self.points.get_comp_backend().shape(self.points)[0], 1),
-            )
-        )
-        pc = trimesh.points.PointCloud(vertices=self.points, colors=colors)
-
-        s = trimesh.Scene(geometry=pc)
-        display(s.show())
+        pass

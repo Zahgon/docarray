@@ -182,7 +182,7 @@ class JaxArray(AbstractTensor, Generic[ShapeT], metaclass=metaJax):
         Convert `JaxArray` into a json compatible object
         :return: a representation of the tensor compatible with orjson
         """
-        return self.unwrap()
+        pass
 
     def unwrap(self) -> jnp.ndarray:
         """

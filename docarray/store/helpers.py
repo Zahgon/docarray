@@ -23,33 +23,12 @@ def get_version_info() -> Dict:
 
     :return: Version information and environment variables
     """
-    import platform
-    from uuid import getnode
-
-    import google.protobuf
-    from google.protobuf.internal import api_implementation
-
-    from docarray import __version__
-
-    return {
-        'docarray': __version__,
-        'protobuf': google.protobuf.__version__,
-        'proto-backend': api_implementation.Type(),
-        'python': platform.python_version(),
-        'platform': platform.system(),
-        'platform-release': platform.release(),
-        'platform-version': platform.version(),
-        'architecture': platform.machine(),
-        'processor': platform.processor(),
-        'uid': getnode(),
-    }
+    pass
 
 
 def ibatch(iterable: Sequence, batch_size: int = 32) -> Iterable:
     """Get an iterator of batched items from Sequence."""
-    seq_len = len(iterable)
-    for offset in range(0, seq_len, batch_size):
-        yield iterable[offset : min(offset + batch_size, seq_len)]
+    pass
 
 
 class _BufferedCachingReader:
@@ -103,8 +82,7 @@ class _BufferedCachingRequestReader(_BufferedCachingReader):
 
 def raise_req_error(resp: 'requests.Response') -> NoReturn:
     """Definitely raise an error from a response."""
-    resp.raise_for_status()
-    raise ValueError(f'Unexpected response status: {resp.status_code}')
+    pass
 
 
 T_Elem = TypeVar('T_Elem')

@@ -127,17 +127,6 @@ class MultiModalDataset(Dataset, Generic[T_doc]):
                 setattr(_field_ref, attr, preprocess(value) or value)
         return doc
 
-    @classmethod
-    def collate_fn(cls, batch: List[T_doc]):
-        doc_type = cls.doc_type
-        if doc_type:
-            batch_da = DocVec[doc_type](  # type: ignore
-                batch,
-                tensor_type=TorchTensor,
-            )
-        else:
-            batch_da = DocVec(batch, tensor_type=TorchTensor)
-        return batch_da
 
     @classmethod
     def __class_getitem__(cls, item: Type[BaseDoc]) -> Type['MultiModalDataset']:

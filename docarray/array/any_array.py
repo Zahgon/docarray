@@ -91,19 +91,7 @@ class AnyDocArray(Sequence[T_doc], Generic[T_doc], AbstractType):
             for field in _DocArrayTyped.doc_type._docarray_fields().keys():
 
                 def _property_generator(val: str):
-                    def _getter(self):
-                        if getattr(self, '_is_unusable', False):
-                            raise UnusableObjectError(
-                                UNUSABLE_ERROR_MSG.format(cls=cls.__name__)
-                            )
-                        return self._get_data_column(val)
 
-                    def _setter(self, value):
-                        if getattr(self, '_is_unusable', False):
-                            raise UnusableObjectError(
-                                UNUSABLE_ERROR_MSG.format(cls=cls.__name__)
-                            )
-                        self._set_data_column(val, value)
 
                     # need docstring for the property
                     return property(fget=_getter, fset=_setter)
@@ -300,21 +288,13 @@ class AnyDocArray(Sequence[T_doc], Generic[T_doc], AbstractType):
         else:
             yield node
 
-    @staticmethod
-    def _flatten_one_level(sequence: List[Any]) -> List[Any]:
-        from docarray import DocList
-
-        if len(sequence) == 0 or not isinstance(sequence[0], (list, DocList)):
-            return sequence
-        else:
-            return [item for sublist in sequence for item in sublist]
 
     def summary(self):
         """
         Print a summary of this [`DocList`][docarray.array.doc_list.doc_list.DocList] object and a summary of the schema of its
         Document type.
         """
-        DocArraySummary(self).summary()
+        pass
 
     def _batch(
         self: T,

@@ -40,12 +40,7 @@ class PushPullMixin(Iterable['BaseDoc']):
         """Resolve the URL to the correct protocol and name.
         :param url: url to resolve
         """
-        protocol, name = url.split('://', 2)
-        if protocol in SUPPORTED_PUSH_PULL_PROTOCOLS:
-            protocol = cast(PUSH_PULL_PROTOCOL, protocol)
-            return protocol, name
-        else:
-            raise ValueError(f'Unsupported protocol {protocol}')
+        pass
 
     @classmethod
     def get_pushpull_backend(
@@ -57,23 +52,7 @@ class PushPullMixin(Iterable['BaseDoc']):
         :param protocol: the protocol to use, e.g. 'file', 's3'
         :return: the backend class
         """
-        if protocol in cls.__backends__:
-            return cls.__backends__[protocol]
-
-        if protocol == 'file':
-            from docarray.store.file import FileDocStore
-
-            cls.__backends__[protocol] = FileDocStore
-            logging.debug('Loaded Local Filesystem backend')
-        elif protocol == 's3':
-            from docarray.store.s3 import S3DocStore
-
-            cls.__backends__[protocol] = S3DocStore
-            logging.debug('Loaded S3 backend')
-        else:
-            raise NotImplementedError(f'protocol {protocol} not supported')
-
-        return cls.__backends__[protocol]
+        pass
 
     def push(
         self,
@@ -86,11 +65,7 @@ class PushPullMixin(Iterable['BaseDoc']):
         :param url: url specifying the protocol and save name of the `DocList`. Should be of the form ``protocol://namespace/name``. e.g. ``s3://bucket/path/to/namespace/name``, ``file:///path/to/folder/name``
         :param show_progress: If true, a progress bar will be displayed.
         """
-        logging.info(f'Pushing {len(self)} docs to {url}')
-        protocol, name = self.__class__.resolve_url(url)
-        return self.__class__.get_pushpull_backend(protocol).push(
-            self, name, show_progress  # type: ignore
-        )
+        pass
 
     @classmethod
     def push_stream(
@@ -105,9 +80,7 @@ class PushPullMixin(Iterable['BaseDoc']):
         :param url: url specifying the protocol and save name of the `DocList`. Should be of the form ``protocol://namespace/name``. e.g. ``s3://bucket/path/to/namespace/name``, ``file:///path/to/folder/name``
         :param show_progress: If true, a progress bar will be displayed.
         """
-        logging.info(f'Pushing stream to {url}')
-        protocol, name = cls.resolve_url(url)
-        return cls.get_pushpull_backend(protocol).push_stream(docs, name, show_progress)
+        pass
 
     @classmethod
     def pull(
@@ -123,19 +96,7 @@ class PushPullMixin(Iterable['BaseDoc']):
         :param local_cache: store the downloaded `DocList` to local folder
         :return: a `DocList` object
         """
-        from docarray.base_doc import AnyDoc
-
-        if cls.doc_type == AnyDoc:
-            raise TypeError(
-                'There is no document schema defined. '
-                'Please specify the `DocList`\'s Document type using `DocList[MyDoc]`.'
-            )
-
-        logging.info(f'Pulling {url}')
-        protocol, name = cls.resolve_url(url)
-        return cls.get_pushpull_backend(protocol).pull(
-            cls, name, show_progress, local_cache  # type: ignore
-        )
+        pass
 
     @classmethod
     def pull_stream(
@@ -151,16 +112,4 @@ class PushPullMixin(Iterable['BaseDoc']):
         :param local_cache: store the downloaded `DocList` to local folder
         :return: Iterator of Documents
         """
-        from docarray.base_doc import AnyDoc
-
-        if cls.doc_type == AnyDoc:
-            raise TypeError(
-                'There is no document schema defined. '
-                'Please specify the `DocList`\'s Document type using `DocList[MyDoc]`.'
-            )
-
-        logging.info(f'Pulling Document stream from {url}')
-        protocol, name = cls.resolve_url(url)
-        return cls.get_pushpull_backend(protocol).pull_stream(
-            cls, name, show_progress, local_cache  # type: ignore
-        )
+        pass

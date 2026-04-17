@@ -25,13 +25,7 @@ def _unsqueeze_if_single_axis(*matrices: tf.Tensor) -> List[tf.Tensor]:
     :return: List of the input matrices,
         where single axis matrices are unsqueezed at dim 0.
     """
-    unsqueezed = []
-    for m in matrices:
-        if len(m.shape) == 1:
-            unsqueezed.append(tf.expand_dims(m, axis=0))
-        else:
-            unsqueezed.append(m)
-    return unsqueezed
+    pass
 
 
 def _unsqueeze_if_scalar(t: tf.Tensor) -> tf.Tensor:
@@ -41,17 +35,11 @@ def _unsqueeze_if_scalar(t: tf.Tensor) -> tf.Tensor:
     :param t: tensor to unsqueeze.
     :return: unsqueezed tf.Tensor
     """
-    if len(t.shape) == 0:  # avoid scalar output
-        t = tf.expand_dims(t, 0)
-    return t
+    pass
 
 
-def norm_left(t: tf.Tensor) -> TensorFlowTensor:
-    return TensorFlowTensor(tensor=t)
 
 
-def norm_right(t: TensorFlowTensor) -> tf.Tensor:
-    return t.tensor
 
 
 class TensorFlowCompBackend(AbstractNumpyBasedBackend[TensorFlowTensor]):
@@ -70,7 +58,7 @@ class TensorFlowCompBackend(AbstractNumpyBasedBackend[TensorFlowTensor]):
     @classmethod
     def none_value(cls) -> typing.Any:
         """Provide a compatible value that represents None in numpy."""
-        return tf.constant(float('nan'))
+        pass
 
     @classmethod
     def to_device(cls, tensor: 'TensorFlowTensor', device: str) -> 'TensorFlowTensor':
@@ -99,27 +87,8 @@ class TensorFlowCompBackend(AbstractNumpyBasedBackend[TensorFlowTensor]):
     @classmethod
     def dtype(cls, tensor: 'TensorFlowTensor') -> tf.dtypes:
         """Get the data type of the tensor."""
-        d_type = cls._get_tensor(tensor).dtype
-        return d_type.name
+        pass
 
-    @classmethod
-    def minmax_normalize(
-        cls,
-        tensor: 'TensorFlowTensor',
-        t_range: Tuple = (0.0, 1.0),
-        x_range: Optional[Tuple] = None,
-        eps: float = 1e-7,
-    ) -> 'TensorFlowTensor':
-        a, b = t_range
-
-        t = tf.cast(cls._get_tensor(tensor), tf.float32)
-        min_d = x_range[0] if x_range else tnp.min(t, axis=-1, keepdims=True)
-        max_d = x_range[1] if x_range else tnp.max(t, axis=-1, keepdims=True)
-
-        i = (b - a) * (t - min_d) / (max_d - min_d + tf.constant(eps) + a)
-
-        normalized = tnp.clip(i, *((a, b) if a < b else (b, a)))
-        return cls._cast_output(tf.cast(normalized, tensor.tensor.dtype))
 
     @classmethod
     def equal(cls, tensor1: 'TensorFlowTensor', tensor2: 'TensorFlowTensor') -> bool:
@@ -131,11 +100,7 @@ class TensorFlowCompBackend(AbstractNumpyBasedBackend[TensorFlowTensor]):
         :return: True if two tensors are equal, False otherwise.
             If one or more of the inputs is not a TensorFlowTensor, return False.
         """
-        t1, t2 = getattr(tensor1, 'tensor', None), getattr(tensor2, 'tensor', None)
-        if tf.is_tensor(t1) and tf.is_tensor(t2):
-            # mypy doesn't know that tf.is_tensor implies that t1, t2 are not None
-            return t1.shape == t2.shape and tf.math.reduce_all(tf.equal(t1, t1))  # type: ignore
-        return False
+        pass
 
     class Retrieval(AbstractComputationalBackend.Retrieval[TensorFlowTensor]):
         """
@@ -216,28 +181,7 @@ class TensorFlowCompBackend(AbstractNumpyBasedBackend[TensorFlowTensor]):
                 The index [i_x, i_y] contains the cosine distance between
                 x_mat[i_x] and y_mat[i_y].
             """
-            comp_be = TensorFlowCompBackend
-            x_mat_tf: tf.Tensor = comp_be._get_tensor(x_mat)
-            y_mat_tf: tf.Tensor = comp_be._get_tensor(y_mat)
-
-            with tf.device(device):
-                x_mat_tf = tf.identity(x_mat_tf)
-                y_mat_tf = tf.identity(y_mat_tf)
-
-            x_mat_tf, y_mat_tf = _unsqueeze_if_single_axis(x_mat_tf, y_mat_tf)
-
-            a_n = tf.linalg.normalize(x_mat_tf, axis=1)[1]
-            b_n = tf.linalg.normalize(y_mat_tf, axis=1)[1]
-            a_norm = x_mat_tf / tf.clip_by_value(
-                a_n, clip_value_min=eps, clip_value_max=tf.float32.max
-            )
-            b_norm = y_mat_tf / tf.clip_by_value(
-                b_n, clip_value_min=eps, clip_value_max=tf.float32.max
-            )
-            sims = tf.squeeze(tf.linalg.matmul(a_norm, tf.transpose(b_norm)))
-            sims = _unsqueeze_if_scalar(sims)
-
-            return comp_be._cast_output(sims)
+            pass
 
         @staticmethod
         def euclidean_dist(
@@ -258,20 +202,7 @@ class TensorFlowCompBackend(AbstractNumpyBasedBackend[TensorFlowTensor]):
                 The index [i_x, i_y] contains the euclidian distance between
                 x_mat[i_x] and y_mat[i_y].
             """
-            comp_be = TensorFlowCompBackend
-            x_mat_tf: tf.Tensor = comp_be._get_tensor(x_mat)
-            y_mat_tf: tf.Tensor = comp_be._get_tensor(y_mat)
-
-            with tf.device(device):
-                x_mat_tf = tf.identity(x_mat_tf)
-                y_mat_tf = tf.identity(y_mat_tf)
-
-            x_mat_tf, y_mat_tf = _unsqueeze_if_single_axis(x_mat_tf, y_mat_tf)
-
-            dists = tf.squeeze(tf.norm(tf.subtract(x_mat_tf, y_mat_tf), axis=-1))
-            dists = _unsqueeze_if_scalar(dists)
-
-            return comp_be._cast_output(dists)
+            pass
 
         @staticmethod
         def sqeuclidean_dist(
@@ -295,9 +226,4 @@ class TensorFlowCompBackend(AbstractNumpyBasedBackend[TensorFlowTensor]):
                 The index [i_x, i_y] contains the euclidian distance between
                 x_mat[i_x] and y_mat[i_y].
             """
-            dists = TensorFlowCompBackend.Metrics.euclidean_dist(x_mat, y_mat)
-            squared: tf.Tensor = tf.math.square(
-                TensorFlowCompBackend._get_tensor(dists)
-            )
-
-            return TensorFlowCompBackend._cast_output(squared)
+            pass

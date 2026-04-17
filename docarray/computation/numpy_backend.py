@@ -15,19 +15,9 @@ def _expand_if_single_axis(*matrices: np.ndarray) -> List[np.ndarray]:
     :return: List of the input matrices,
         where single axis matrices are expanded at dim 0.
     """
-    expanded = []
-    for m in matrices:
-        if len(m.shape) == 1:
-            expanded.append(np.expand_dims(m, axis=0))
-        else:
-            expanded.append(m)
-    return expanded
+    pass
 
 
-def _expand_if_scalar(arr: np.ndarray) -> np.ndarray:
-    if len(arr.shape) == 0:  # avoid scalar output
-        arr = np.expand_dims(arr, axis=0)
-    return arr
 
 
 def identity(array: np.ndarray) -> np.ndarray:
@@ -60,7 +50,7 @@ class NumpyCompBackend(AbstractNumpyBasedBackend):
     @classmethod
     def none_value(cls) -> Any:
         """Provide a compatible value that represents None in numpy."""
-        return None
+        pass
 
     @classmethod
     def detach(cls, tensor: 'np.ndarray') -> 'np.ndarray':
@@ -75,7 +65,7 @@ class NumpyCompBackend(AbstractNumpyBasedBackend):
     @classmethod
     def dtype(cls, tensor: 'np.ndarray') -> np.dtype:
         """Get the data type of the tensor."""
-        return tensor.dtype
+        pass
 
     @classmethod
     def minmax_normalize(
@@ -103,13 +93,7 @@ class NumpyCompBackend(AbstractNumpyBasedBackend):
         :param eps: a small jitter to avoid divide by zero
         :return: normalized data in `t_range`
         """
-        a, b = t_range
-
-        min_d = x_range[0] if x_range else np.min(tensor, axis=-1, keepdims=True)
-        max_d = x_range[1] if x_range else np.max(tensor, axis=-1, keepdims=True)
-        r = (b - a) * (tensor - min_d) / (max_d - min_d + eps) + a
-
-        return np.clip(r, *((a, b) if a < b else (b, a)))
+        pass
 
     @classmethod
     def equal(cls, tensor1: 'np.ndarray', tensor2: 'np.ndarray') -> bool:
@@ -121,10 +105,7 @@ class NumpyCompBackend(AbstractNumpyBasedBackend):
         :return: True if two arrays are equal, False otherwise.
             If one or more of the inputs is not an ndarray, return False.
         """
-        are_np_arrays = isinstance(tensor1, np.ndarray) and isinstance(
-            tensor2, np.ndarray
-        )
-        return are_np_arrays and np.array_equal(tensor1, tensor2)
+        pass
 
     class Retrieval(AbstractComputationalBackend.Retrieval[np.ndarray]):
         """
@@ -205,23 +186,7 @@ class NumpyCompBackend(AbstractNumpyBasedBackend):
                 The index [i_x, i_y] contains the cosine distance between
                 x_mat[i_x] and y_mat[i_y].
             """
-            if device is not None:
-                warnings.warn('`device` is not supported for numpy operations')
-
-            x_mat, y_mat = _expand_if_single_axis(x_mat, y_mat)
-
-            sims = np.clip(
-                (np.dot(x_mat, y_mat.T) + eps)
-                / (
-                    np.outer(
-                        np.linalg.norm(x_mat, axis=1), np.linalg.norm(y_mat, axis=1)
-                    )
-                    + eps
-                ),
-                -1,
-                1,
-            ).squeeze()
-            return _expand_if_scalar(sims)
+            pass
 
         @classmethod
         def euclidean_dist(
@@ -242,14 +207,7 @@ class NumpyCompBackend(AbstractNumpyBasedBackend):
                 The index [i_x, i_y] contains the euclidian distance between
                 x_mat[i_x] and y_mat[i_y].
             """
-            if device is not None:
-                warnings.warn('`device` is not supported for numpy operations')
-
-            x_mat, y_mat = _expand_if_single_axis(x_mat, y_mat)
-
-            return _expand_if_scalar(
-                np.sqrt(cls.sqeuclidean_dist(x_mat, y_mat)).squeeze()
-            )
+            pass
 
         @staticmethod
         def sqeuclidean_dist(
@@ -272,19 +230,4 @@ class NumpyCompBackend(AbstractNumpyBasedBackend):
                 The index [i_x, i_y] contains the cosine Squared Euclidian between
                 x_mat[i_x] and y_mat[i_y].
             """
-            eps: float = 1e-7  # avoid problems with numerical inaccuracies
-
-            if device is not None:
-                warnings.warn('`device` is not supported for numpy operations')
-
-            x_mat, y_mat = _expand_if_single_axis(x_mat, y_mat)
-
-            dists = (
-                np.sum(y_mat**2, axis=1)
-                + np.sum(x_mat**2, axis=1)[:, np.newaxis]
-                - 2 * np.dot(x_mat, y_mat.T)
-            ).squeeze()
-
-            # remove numerical artifacts
-            dists = np.where(np.logical_and(dists < 0, dists > -eps), 0, dists)
-            return _expand_if_scalar(dists)
+            pass

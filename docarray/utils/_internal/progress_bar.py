@@ -28,18 +28,6 @@ from rich.progress import (
 
 
 class _QPSColumn(TextColumn):
-    def render(self, task) -> Text:
-        if task.speed:
-            _text = f'{task.speed:.0f} QPS'
-        else:
-            _text = 'unknown'
-        if self.markup:
-            text = Text.from_markup(_text, style=self.style, justify=self.justify)
-        else:
-            text = Text(_text, style=self.style, justify=self.justify)
-        if self.highlighter:
-            self.highlighter.highlight(text)
-        return text
 
 
 def _get_pbar(disable: bool, total: Optional[int] = None):

@@ -126,4 +126,4 @@ class PointCloud3DUrl(Url3D):
 
         :param samples: number of points to sample from the mesh.
         """
-        self.load(samples=samples, skip_materials=False).display()
+        pass

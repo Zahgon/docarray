@@ -297,14 +297,6 @@ class DocList(
         else:
             raise TypeError(f'Expecting an Iterable of {cls.doc_type}')
 
-    def traverse_flat(
-        self: 'DocList',
-        access_path: str,
-    ) -> List[Any]:
-        nodes = list(AnyDocArray._traverse(node=self, access_path=access_path))
-        flattened = AnyDocArray._flatten_one_level(nodes)
-
-        return flattened
 
     @classmethod
     def from_protobuf(cls: Type[T], pb_msg: 'DocListProto') -> T:
@@ -363,9 +355,6 @@ class DocList(
             else:
                 sequence_t_schema = handler(Sequence)
 
-            def validate_fn(v, info):
-                # input has already been validated
-                return cls(v, validate_input_docs=False)
 
             non_instance_schema = core_schema.with_info_after_validator_function(
                 validate_fn, sequence_t_schema

@@ -211,8 +211,6 @@ class LookupNode(LookupTreeElem):
         self.op = op
         self.negate = negate
 
-    def add_child(self, child) -> None:
-        self.children.append(child)
 
     def evaluate(self, doc: Any) -> bool:
         """Evaluates the expression represented by the object for the document
@@ -298,7 +296,7 @@ def iff(precond: Callable, val: Any, f: Callable) -> bool:
     :param f       : (function) the actual function
 
     """
-    return False if not precond(val) else f(val)
+    pass
 
 
 iff_not_none = partial(iff, lambda x: x is not None)

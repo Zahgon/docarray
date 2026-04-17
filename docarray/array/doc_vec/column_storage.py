@@ -99,24 +99,6 @@ class ColumnStorage:
             self.tensor_type,
         )
 
-    def columns_json_compatible(self) -> ColumnsJsonCompatible:
-        tens_cols = {
-            key: value._docarray_to_json_compatible() if value is not None else value
-            for key, value in self.tensor_columns.items()
-        }
-        doc_cols = {
-            key: value._docarray_to_json_compatible() if value is not None else value
-            for key, value in self.doc_columns.items()
-        }
-        doc_vec_cols = {
-            key: [vec._docarray_to_json_compatible() for vec in value]
-            if value is not None
-            else value
-            for key, value in self.docs_vec_columns.items()
-        }
-        return ColumnsJsonCompatible(
-            tens_cols, doc_cols, doc_vec_cols, self.any_columns
-        )
 
     def __eq__(self, other: Any) -> bool:
         if not isinstance(other, ColumnStorage):

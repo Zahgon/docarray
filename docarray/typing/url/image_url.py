@@ -144,13 +144,4 @@ class ImageUrl(AnyUrl):
         """
         Display image data from url in notebook.
         """
-        if is_notebook():
-            from IPython.display import Image, display
-
-            remote_url = True if self.startswith('http') else False
-            if remote_url:
-                display(Image(url=self))
-            else:
-                display(Image(filename=self))
-        else:
-            warnings.warn('Display of image is only possible in a notebook.')
+        pass

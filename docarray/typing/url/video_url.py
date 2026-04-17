@@ -110,31 +110,4 @@ class VideoUrl(AnyUrl):
         """
         Play video from url in notebook.
         """
-        if is_notebook():
-            from IPython.display import display
-
-            remote_url = True if self.startswith('http') else False
-
-            if remote_url:
-                from IPython.display import Video
-
-                b = self.load_bytes()
-                display(Video(data=b, embed=True, mimetype='video/mp4'))
-            else:
-                import os
-
-                from IPython.display import HTML
-
-                path = os.path.relpath(self)
-                src = f'''
-                    <body>
-                    <video width="320" height="240" autoplay muted controls>
-                    <source src="{path}">
-                    Your browser does not support the video tag.
-                    </video>
-                    </body>
-                    '''
-                display(HTML(src))
-
-        else:
-            warnings.warn('Display of video is only possible in a notebook.')
+        pass

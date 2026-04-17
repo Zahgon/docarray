@@ -138,10 +138,6 @@ class AudioDoc(BaseDoc):
 
     if is_pydantic_v2:
 
-        @model_validator(mode='before')
-        @classmethod
-        def validate_model_before(cls, value):
-            return cls._validate(value)
 
     else:
 

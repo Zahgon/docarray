@@ -160,28 +160,7 @@ class DocVec(IOMixinDocVec, AnyDocArray[T_doc]):  # type: ignore
 
             first_doc_is_none = getattr(docs[0], field_name) is None
 
-            def _verify_optional_field_of_docs(docs):
 
-                if is_field_required:
-                    if first_doc_is_none:
-                        raise ValueError(
-                            f'Field {field_name} is None for {docs[0]} even though it is required'
-                        )
-
-                if first_doc_is_none:
-                    for i, doc in enumerate(docs):
-                        if getattr(doc, field_name) is not None:
-                            raise ValueError(
-                                f'Field {field_name} is put to None for the first doc. This mean that '
-                                f'all of the other docs should have this field set to None as well. '
-                                f'This is not the case for {doc} at index {i}'
-                            )
-
-            def _check_doc_field_not_none(field_name, doc):
-                if getattr(doc, field_name) is None:
-                    raise ValueError(
-                        f'Field {field_name} is None for {doc} even though it is not None for the first doc'
-                    )
 
             if is_tensor_union(field_type):
                 field_type = tensor_type
@@ -444,33 +423,7 @@ class DocVec(IOMixinDocVec, AnyDocArray[T_doc]):  # type: ignore
             DocList (data) and column types (torch/tensorflow/numpy tensors)
         :value: the value to set at the `key` location
         """
-        if isinstance(index_item, tuple):
-            index_item = list(index_item)
-
-        # set data and prepare columns
-        processed_value: T
-        if isinstance(value, DocList):
-            if not safe_issubclass(value.doc_type, self.doc_type):
-                raise TypeError(
-                    f'{value} schema : {value.doc_type} is not compatible with '
-                    f'this DocVec schema : {self.doc_type}'
-                )
-            processed_value = cast(
-                T, value.to_doc_vec(tensor_type=self.tensor_type)
-            )  # we need to copy data here
-
-        elif isinstance(value, DocVec):
-            if not safe_issubclass(value.doc_type, self.doc_type):
-                raise TypeError(
-                    f'{value} schema : {value.doc_type} is not compatible with '
-                    f'this DocVec schema : {self.doc_type}'
-                )
-            processed_value = value
-        else:
-            raise TypeError(f'Can not set a DocVec with {type(value)}')
-
-        for field, col in self._storage.columns.items():
-            col[index_item] = processed_value._storage.columns[field]
+        pass
 
     def _set_data_column(
         self: T,
@@ -587,9 +540,6 @@ class DocVec(IOMixinDocVec, AnyDocArray[T_doc]):  # type: ignore
 
         return DocVecProto
 
-    def _docarray_to_json_compatible(self) -> Dict[str, Dict[str, Any]]:
-        tup = self._storage.columns_json_compatible()
-        return tup._asdict()
 
     def to_doc_list(self: T) -> DocList[T_doc]:
         """Convert DocVec into a DocList.
@@ -645,19 +595,6 @@ class DocVec(IOMixinDocVec, AnyDocArray[T_doc]):  # type: ignore
 
         return DocList.__class_getitem__(doc_type).construct(docs)
 
-    def traverse_flat(
-        self,
-        access_path: str,
-    ) -> Union[List[Any], 'TorchTensor', 'NdArray']:
-        nodes = list(AnyDocArray._traverse(node=self, access_path=access_path))
-        flattened = AnyDocArray._flatten_one_level(nodes)
-
-        cls_to_check = (NdArray, TorchTensor) if TorchTensor is not None else (NdArray,)
-
-        if len(flattened) == 1 and isinstance(flattened[0], cls_to_check):
-            return flattened[0]
-        else:
-            return flattened
 
     @classmethod
     def __class_getitem__(cls, item: Union[Type[BaseDoc], TypeVar, str]):

@@ -164,7 +164,7 @@ class MilvusDocumentIndex(BaseDocIndex, Generic[TSchema]):
 
         def build(self, *args, **kwargs) -> Any:
             """Build the query object."""
-            return self._queries
+            pass
 
         find = _collect_query_args('find')
         filter = _collect_query_args('filter')
@@ -181,25 +181,7 @@ class MilvusDocumentIndex(BaseDocIndex, Generic[TSchema]):
         :return: the corresponding database column type, or None if ``python_type``
         is not supported.
         """
-        type_map = {
-            int: DataType.INT64,
-            float: DataType.FLOAT,
-            str: DataType.VARCHAR,
-            bytes: DataType.VARCHAR,
-            np.ndarray: DataType.FLOAT_VECTOR,
-            list: DataType.FLOAT_VECTOR,
-            AnyTensor: DataType.FLOAT_VECTOR,
-            AbstractTensor: DataType.FLOAT_VECTOR,
-        }
-
-        if safe_issubclass(python_type, ID):
-            return DataType.VARCHAR
-
-        for py_type, db_type in type_map.items():
-            if safe_issubclass(python_type, py_type):
-                return db_type
-
-        raise ValueError(f'Unsupported column type for {type(self)}: {python_type}')
+        pass
 
     def _create_or_load_collection(self) -> Collection:
         """
@@ -211,57 +193,7 @@ class MilvusDocumentIndex(BaseDocIndex, Generic[TSchema]):
             Milvus framework currently only supports a single vector column, and only one vector
             column can store in the schema (others are stored in the serialized data)
         """
-
-        if not utility.has_collection(self.index_name):
-            fields = [
-                FieldSchema(
-                    name="serialized",
-                    dtype=DataType.VARCHAR,
-                    max_length=MAX_LEN,
-                ),
-                FieldSchema(
-                    name="id",
-                    dtype=DataType.VARCHAR,
-                    is_primary=True,
-                    max_length=MAX_LEN,
-                ),
-            ]
-            for column_name, info in self._column_infos.items():
-                if (
-                    column_name != 'id'
-                    and not (
-                        info.db_type == DataType.FLOAT_VECTOR
-                        and column_name
-                        != self._field_name  # Only store one vector field as a column
-                    )
-                    and not safe_issubclass(info.docarray_type, AnyDocArray)
-                ):
-                    field_dict: Dict[str, Any] = {}
-                    if info.db_type == DataType.VARCHAR:
-                        field_dict = {'max_length': MAX_LEN}
-                    elif info.db_type == DataType.FLOAT_VECTOR:
-                        field_dict = {'dim': info.n_dim or info.config.get('dim')}
-
-                    fields.append(
-                        FieldSchema(
-                            name=column_name,
-                            dtype=info.db_type,
-                            is_primary=False,
-                            **field_dict,
-                        )
-                    )
-
-            self._logger.info("Collection has been created")
-            return Collection(
-                name=self.index_name,
-                schema=CollectionSchema(
-                    fields=fields,
-                    description=self._db_config.collection_description,
-                ),
-                using='default',
-            )
-
-        return Collection(self.index_name)
+        pass
 
     def _validate_columns(self):
         """
@@ -269,96 +201,21 @@ class MilvusDocumentIndex(BaseDocIndex, Generic[TSchema]):
         for embedding (as required by Milvus), and ensures that dimension information
         is specified for that column.
         """
-        vector_columns = sum(
-            safe_issubclass(info.docarray_type, AbstractTensor)
-            and info.config.get('is_embedding', False)
-            for info in self._column_infos.values()
-        )
-        if vector_columns == 0:
-            raise ValueError(
-                "Unable to find any vector columns. Please make sure that at least one "
-                "column is of a vector type with the is_embedding=True attribute specified."
-            )
-        elif vector_columns > 1:
-            raise ValueError("Specifying multiple vector fields is not supported.")
+        pass
 
-        for column, info in self._column_infos.items():
-            if info.config.get('is_embedding') and (
-                not info.n_dim and not info.config.get('dim')
-            ):
-                raise ValueError(
-                    f"The dimension information is missing for the column '{column}', which is of vector type."
-                )
-
-    @property
-    def index_name(self):
-        default_index_name = (
-            self._schema.__name__.lower() if self._schema is not None else None
-        )
-        if default_index_name is None:
-            err_msg = (
-                'A MilvusDocumentIndex must be typed with a Document type. '
-                'To do so, use the syntax: MilvusDocumentIndex[DocumentType]'
-            )
-
-            self._logger.error(err_msg)
-            raise ValueError(err_msg)
-        index_name = self._db_config.index_name or default_index_name
-        self._logger.debug(f'Retrieved index name: {index_name}')
-        return index_name
 
     @property
     def out_schema(self) -> Type[BaseDoc]:
         """Return the real schema of the index."""
-        if self._is_subindex:
-            return self._ori_schema
-        return cast(Type[BaseDoc], self._schema)
+        pass
 
     def _build_index(self):
         """
         Sets up an index configuration for a specific column index, which is
         required by the Milvus backend.
         """
+        pass
 
-        existing_indices = [index.field_name for index in self._collection.indexes]
-        if self._field_name in existing_indices:
-            return
-
-        index_type = self._column_infos[self._field_name].config['index_type'].upper()
-        if index_type not in VALID_INDEX_TYPES:
-            raise ValueError(
-                f"Invalid index type '{index_type}' provided. "
-                f"Must be one of: {', '.join(VALID_INDEX_TYPES)}"
-            )
-        metric_type = (
-            self._column_infos[self._field_name].config.get('space', '').upper()
-        )
-        if metric_type not in VALID_METRICS:
-            self._logger.warning(
-                f"Invalid or no distance metric '{metric_type}' was provided. "
-                f"Should be one of: {', '.join(VALID_INDEX_TYPES)}. "
-                f"Default distance metric will be used."
-            )
-            metric_type = self._column_infos[self._field_name].config['metric_type']
-
-        index = {
-            "index_type": index_type,
-            "metric_type": metric_type,
-            "params": self._column_infos[self._field_name].config['params'],
-        }
-
-        self._collection.create_index(self._field_name, index)
-        self._logger.info(
-            f"Index for the field '{self._field_name}' has been successfully created"
-        )
-
-    def _get_vector_field_name(self):
-        for column, info in self._column_infos.items():
-            if info.db_type == DataType.FLOAT_VECTOR and info.config.get(
-                'is_embedding'
-            ):
-                return column
-        return ''
 
     @staticmethod
     def _get_batches(docs, batch_size):
@@ -477,15 +334,7 @@ class MilvusDocumentIndex(BaseDocIndex, Generic[TSchema]):
 
         :param doc_ids: ids to delete from the Document Store
         """
-        self._collection.load()
-        for batch in self._get_batches(
-            doc_ids, batch_size=self._runtime_config.batch_size
-        ):
-            self._collection.delete(
-                expr="id in " + str([id for id in batch]),
-                consistency_level=self._db_config.consistency_level,
-            )
-        self._logger.info(f"{len(doc_ids)} documents has been deleted")
+        pass
 
     def _filter(
         self,
@@ -743,38 +592,7 @@ class MilvusDocumentIndex(BaseDocIndex, Generic[TSchema]):
         :param query: Query to execute on the index.
         :return: Query results.
         """
-        components: Dict[str, List[Dict[str, Any]]] = {}
-        for component, value in query:
-            if component not in components:
-                components[component] = []
-            components[component].append(value)
-
-        if (
-            len(components) != 2
-            or len(components.get('find', [])) != 1
-            or len(components.get('filter', [])) != 1
-        ):
-            raise ValueError(
-                'The query must contain exactly one "find" and "filter" components.'
-            )
-
-        expr = components['filter'][0]['filter_query']
-        query = components['find'][0]['query']
-        limit = (
-            components['find'][0].get('limit')
-            or components['filter'][0].get('limit')
-            or 10
-        )
-        docs, scores = self._hybrid_search(
-            query=query,
-            expr=expr,
-            search_field=self._field_name,
-            limit=limit,
-        )
-        if isinstance(docs, List) and not isinstance(docs, DocList):
-            docs = self._dict_list_to_docarray(docs)
-
-        return FindResult(documents=docs, scores=scores)
+        pass
 
     def _docs_from_query_response(self, result: Sequence[Dict]) -> DocList[Any]:
         return DocList[self._schema](  # type: ignore
@@ -832,11 +650,3 @@ class MilvusDocumentIndex(BaseDocIndex, Generic[TSchema]):
 
         return embedding
 
-    def _doc_exists(self, doc_id: str) -> bool:
-        result = self._collection.query(
-            expr="id in " + str([doc_id]),
-            offset=0,
-            output_fields=["serialized"],
-        )
-
-        return len(result) > 0

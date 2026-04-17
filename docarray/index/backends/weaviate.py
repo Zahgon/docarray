@@ -113,72 +113,11 @@ class WeaviateDocumentIndex(BaseDocIndex, Generic[TSchema]):
         self._set_properties()
         self._create_schema()
 
-    @property
-    def index_name(self):
-        default_index_name = self._schema.__name__ if self._schema is not None else None
-        if default_index_name is None:
-            raise ValueError(
-                'A WeaviateDocumentIndex must be typed with a Document type.'
-                'To do so, use the syntax: WeaviateDocumentIndex[DocumentType]'
-            )
 
-        return self._db_config.index_name or default_index_name
 
-    def _set_properties(self) -> None:
-        field_overwrites = {"id": DOCUMENTID}
 
-        self.properties = [
-            field_overwrites.get(k, k)
-            for k, v in self._column_infos.items()
-            if v.config.get('is_embedding', False) is False
-            and not safe_issubclass(v.docarray_type, AnyDocArray)
-        ]
 
-    def _validate_columns(self) -> None:
-        # must have at most one column with property is_embedding=True
-        # and that column must be of type WEAVIATE_PY_VEC_TYPES
-        # TODO: update when https://github.com/weaviate/weaviate/issues/2424
-        # is implemented and discuss best interface to signal which column(s)
-        # should be used for embeddings
-        num_embedding_columns = 0
 
-        for column_name, column_info in self._column_infos.items():
-            if column_info.config.get('is_embedding', False):
-                num_embedding_columns += 1
-                # if db_type is not 'number[]', then that means the type of the column in
-                # the given schema is not one of WEAVIATE_PY_VEC_TYPES
-                # note: the mapping between a column's type in the schema to a weaviate type
-                # is handled by the python_type_to_db_type method
-                if column_info.db_type != 'number[]':
-                    raise ValueError(
-                        f'Column {column_name} is marked as embedding but is not of type {WEAVIATE_PY_VEC_TYPES}'
-                    )
-
-        if num_embedding_columns > 1:
-            raise ValueError(
-                f'Only one column can be marked as embedding but found {num_embedding_columns} columns marked as embedding'
-            )
-
-    def _set_embedding_column(self) -> None:
-        for column_name, column_info in self._column_infos.items():
-            if column_info.config.get('is_embedding', False):
-                self.embedding_column = column_name
-                break
-
-    def _configure_client(self) -> None:
-        self._client.batch.configure(**self._runtime_config.batch_config)
-
-    def _build_auth_credentials(self):
-        dbconfig = self._db_config
-
-        if dbconfig.auth_api_key:
-            return weaviate.auth.AuthApiKey(api_key=dbconfig.auth_api_key)
-        elif dbconfig.username and dbconfig.password:
-            return weaviate.auth.AuthClientPassword(
-                dbconfig.username, dbconfig.password, dbconfig.scopes
-            )
-        else:
-            return None
 
     def configure(self, runtime_config=None, **kwargs) -> None:
         """
@@ -191,46 +130,8 @@ class WeaviateDocumentIndex(BaseDocIndex, Generic[TSchema]):
         :param runtime_config: the configuration to apply
         :param kwargs: individual configuration parameters
         """
-        super().configure(runtime_config, **kwargs)
-        self._configure_client()
+        pass
 
-    def _create_schema(self) -> None:
-        schema: Dict[str, Any] = {}
-
-        properties = []
-        column_infos = self._column_infos
-
-        for column_name, column_info in column_infos.items():
-            # in weaviate, we do not create a property for the doc's embeddings
-            if safe_issubclass(column_info.docarray_type, AnyDocArray):
-                continue
-            if column_name == self.embedding_column:
-                continue
-            if column_info.db_type == 'blob':
-                self.bytes_columns.append(column_name)
-            if column_info.db_type == 'number[]':
-                self.nonembedding_array_columns.append(column_name)
-            prop = {
-                "name": column_name
-                if column_name != 'id'
-                else DOCUMENTID,  # in weaviate, id and _id is a reserved keyword
-                "dataType": [column_info.db_type],
-            }
-            properties.append(prop)
-
-        # TODO: What is the best way to specify other config that is part of schema?
-        # e.g. invertedIndexConfig, shardingConfig, moduleConfig, vectorIndexConfig
-        #       and configure replication
-        # we will update base on user feedback
-        schema["properties"] = properties
-        schema["class"] = self.index_name
-
-        if self._client.schema.exists(self.index_name):
-            logging.warning(
-                f"Found index {self.index_name} with schema {schema}. Will reuse existing schema."
-            )
-        else:
-            self._client.schema.create_class(schema)
 
     @dataclass
     class DBConfig(BaseDocIndex.DBConfig):
@@ -275,28 +176,6 @@ class WeaviateDocumentIndex(BaseDocIndex, Generic[TSchema]):
             default_factory=lambda: DEFAULT_BATCH_CONFIG
         )
 
-    def _del_items(self, doc_ids: Sequence[str]):
-        has_matches = True
-
-        operands = [
-            {"path": [DOCUMENTID], "operator": "Equal", "valueString": doc_id}
-            for doc_id in doc_ids
-        ]
-        where_filter = {
-            "operator": "Or",
-            "operands": operands,
-        }
-
-        # do a loop because there is a limit to how many objects can be deleted at
-        # in a single query
-        # see: https://weaviate.io/developers/weaviate/api/rest/batch#maximum-number-of-deletes-per-query
-        while has_matches:
-            results = self._client.batch.delete_objects(
-                class_name=self.index_name,
-                where=where_filter,
-            )
-
-            has_matches = results["results"]["matches"]
 
     def _filter(self, filter_query: Any, limit: int) -> Union[DocList, List[Dict]]:
         self._overwrite_id(filter_query)
@@ -599,52 +478,7 @@ class WeaviateDocumentIndex(BaseDocIndex, Generic[TSchema]):
                     vector=vector,
                 )
 
-    def _text_search(
-        self, query: str, limit: int, search_field: str = ''
-    ) -> _FindResult:
-        index_name = self.index_name
-        bm25 = {"query": query, "properties": [search_field]}
 
-        results = (
-            self._client.query.get(index_name, self.properties)
-            .with_bm25(**bm25)
-            .with_limit(limit)
-            .with_additional(["score", "vector"])
-            .do()
-        )
-
-        docs, scores = self._format_response(
-            results["data"]["Get"][index_name], "score"
-        )
-
-        return _FindResult(documents=docs, scores=parse_obj_as(NdArray, scores))
-
-    def _text_search_batched(
-        self, queries: Sequence[str], limit: int, search_field: str = ''
-    ) -> _FindResultBatched:
-        qs = []
-        for i, query in enumerate(queries):
-            bm25 = {"query": query, "properties": [search_field]}
-
-            q = (
-                self._client.query.get(self.index_name, self.properties)
-                .with_bm25(**bm25)
-                .with_limit(limit)
-                .with_additional(["score", "vector"])
-                .with_alias(f'query_{i}')
-            )
-
-            qs.append(q)
-
-        results = self._client.query.multi_get(qs).do()
-
-        docs_and_scores = [
-            self._format_response(result, "score")
-            for result in results["data"]["Get"].values()
-        ]
-
-        docs, scores = zip(*docs_and_scores)
-        return _FindResultBatched(list(docs), list(scores))
 
     def execute_query(self, query: Any, *args, **kwargs) -> Any:
         """
@@ -661,28 +495,7 @@ class WeaviateDocumentIndex(BaseDocIndex, Generic[TSchema]):
         :param kwargs: keyword arguments to pass to the query
         :return: the result of the query
         """
-        da_class = DocList.__class_getitem__(cast(Type[BaseDoc], self._schema))
-
-        if isinstance(query, self.QueryBuilder):
-            batched_results = self._client.query.multi_get(query._queries).do()
-            batched_docs = batched_results["data"]["Get"].values()
-
-            def f(doc):
-                # TODO: use
-                # return self._schema(**self._parse_weaviate_result(doc))
-                # when https://github.com/weaviate/weaviate/issues/2858
-                # is fixed
-                return self._schema.from_view(self._parse_weaviate_result(doc))  # type: ignore
-
-            results = [
-                da_class([f(doc) for doc in batched_doc])
-                for batched_doc in batched_docs
-            ]
-            return results if len(results) > 1 else results[0]
-
-        # TODO: validate graphql query string before sending it to weaviate
-        if isinstance(query, str):
-            return self._client.query.raw(query)
+        pass
 
     def num_docs(self) -> int:
         """
@@ -703,32 +516,14 @@ class WeaviateDocumentIndex(BaseDocIndex, Generic[TSchema]):
         :return: the corresponding database column type,
             or None if ``python_type`` is not supported.
         """
-        for allowed_type in WEAVIATE_PY_VEC_TYPES:
-            if safe_issubclass(python_type, allowed_type):
-                return 'number[]'
-
-        py_weaviate_type_map = {
-            docarray.typing.ID: 'string',
-            str: 'text',
-            int: 'int',
-            float: 'number',
-            bool: 'boolean',
-            np.ndarray: 'number[]',
-            bytes: 'blob',
-        }
-
-        for py_type, weaviate_type in py_weaviate_type_map.items():
-            if safe_issubclass(python_type, py_type):
-                return weaviate_type
-
-        raise ValueError(f'Unsupported column type for {type(self)}: {python_type}')
+        pass
 
     def build_query(self) -> BaseDocIndex.QueryBuilder:
         """
         Build a query for WeaviateDocumentIndex.
         :return: QueryBuilder object
         """
-        return self.QueryBuilder(self)
+        pass
 
     def _get_embedding_field(self):
         for colname, colinfo in self._column_infos.items():
@@ -770,20 +565,6 @@ class WeaviateDocumentIndex(BaseDocIndex, Generic[TSchema]):
         ]
         return ids
 
-    def _doc_exists(self, doc_id: str) -> bool:
-        result = (
-            self._client.query.get(self.index_name, ['docarrayid'])
-            .with_where(
-                {
-                    "path": ['docarrayid'],
-                    "operator": "Equal",
-                    "valueString": f'{doc_id}',
-                }
-            )
-            .do()
-        )
-        docs = result["data"]["Get"][self.index_name]
-        return docs is not None and len(docs) > 0
 
     class QueryBuilder(BaseDocIndex.QueryBuilder):
         def __init__(self, document_index):
@@ -795,24 +576,13 @@ class WeaviateDocumentIndex(BaseDocIndex, Generic[TSchema]):
 
         def build(self, *args, **kwargs) -> Any:
             """Build the query object."""
-            num_queries = len(self._queries)
-
-            for i in range(num_queries):
-                q = self._queries[i]
-                if self._is_hybrid_query(q):
-                    self._make_proper_hybrid_query(q)
-                q.with_additional(["vector"]).with_alias(f'query_{i}')
-
-            return self
+            pass
 
         def _is_hybrid_query(self, query: weaviate.gql.get.GetBuilder) -> bool:
             """
             Checks if a query has been composed with both a with_bm25 and a with_near_vector verb
             """
-            if not query._near_ask:
-                return False
-            else:
-                return query._bm25 and query._near_ask._content.get("vector", None)
+            pass
 
         def _make_proper_hybrid_query(
             self, query: weaviate.gql.get.GetBuilder
@@ -823,16 +593,7 @@ class WeaviateDocumentIndex(BaseDocIndex, Generic[TSchema]):
             In weaviate, a query with with_bm25 and with_near_vector verb is not a hybrid query.
             We need to use the with_hybrid verb to make it a hybrid query.
             """
-
-            text_query = query._bm25.query
-            vector_query = query._near_ask._content["vector"]
-            hybrid_query = weaviate.gql.get.Hybrid(
-                query=text_query, vector=vector_query, alpha=0.5
-            )
-
-            query._bm25 = None
-            query._near_ask = None
-            query._hybrid = hybrid_query
+            pass
 
         def _overwrite_id(self, where_filter):
             """
@@ -917,29 +678,14 @@ class WeaviateDocumentIndex(BaseDocIndex, Generic[TSchema]):
             :param where_filter: a filter
             :return: self
             """
-            where_filter = where_filter.copy()
-            self._overwrite_id(where_filter)
-            self._queries[0] = self._queries[0].with_where(where_filter)
-            return self
+            pass
 
         def filter_batched(self, filters) -> Any:
             """Find documents in the index based on a filter query
             :param filters: filters
             :return: self
             """
-            adj_queries, adj_clauses = self._resize_queries_and_clauses(
-                self._queries, filters
-            )
-            new_queries = []
-
-            for query, clause in zip(adj_queries, adj_clauses):
-                clause = clause.copy()
-                self._overwrite_id(clause)
-                new_queries.append(query.with_where(clause))
-
-            self._queries = new_queries
-
-            return self
+            pass
 
         def text_search(self, query: str, search_field: Optional[str] = None) -> Any:
             """Find documents in the index based on a text search query
@@ -948,11 +694,7 @@ class WeaviateDocumentIndex(BaseDocIndex, Generic[TSchema]):
             :param search_field: name of the field to search on
             :return: self
             """
-            bm25: Dict[str, Any] = {"query": query}
-            if search_field:
-                bm25["properties"] = [search_field]
-            self._queries[0] = self._queries[0].with_bm25(**bm25)
-            return self
+            pass
 
         def text_search_batched(
             self, queries: Sequence[str], search_field: Optional[str] = None
@@ -963,24 +705,8 @@ class WeaviateDocumentIndex(BaseDocIndex, Generic[TSchema]):
             :param search_field: name of the field to search on
             :return: self
             """
-            adj_queries, adj_clauses = self._resize_queries_and_clauses(
-                self._queries, queries
-            )
-            new_queries = []
+            pass
 
-            for query, clause in zip(adj_queries, adj_clauses):
-                bm25 = {"query": clause}
-                if search_field:
-                    bm25["properties"] = [search_field]
-                new_queries.append(query.with_bm25(**bm25))
-
-            self._queries = new_queries
-
-            return self
-
-        def limit(self, limit: int) -> Any:
-            self._queries = [query.with_limit(limit) for query in self._queries]
-            return self
 
         def _resize_queries_and_clauses(self, queries, clauses):
             """

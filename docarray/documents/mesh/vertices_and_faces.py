@@ -48,18 +48,4 @@ class VerticesAndFaces(BaseDoc):
         """
         Plot mesh consisting of vertices and faces.
         """
-        if TYPE_CHECKING:
-            import trimesh
-        else:
-            trimesh = import_library('trimesh', raise_error=True)
-
-        from IPython.display import display
-
-        if self.vertices is None or self.faces is None:
-            raise ValueError(
-                'Can\'t display mesh from tensors when the vertices and/or faces '
-                'are None.'
-            )
-
-        mesh = trimesh.Trimesh(vertices=self.vertices, faces=self.faces)
-        display(mesh.show())
+        pass

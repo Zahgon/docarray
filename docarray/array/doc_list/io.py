@@ -72,18 +72,7 @@ def _protocol_and_compress_from_file_path(
     >>> _protocol_and_compress_from_file_path('/Documents/docarray_fashion_mnist.gzip')
     (None, gzip)
     """
-
-    protocol = default_protocol
-    compress = default_compress
-
-    file_extensions = [e.replace('.', '') for e in pathlib.Path(file_path).suffixes]
-    for extension in file_extensions:
-        if extension in ALLOWED_PROTOCOLS:
-            protocol = cast(ProtocolType, extension)
-        elif extension in ALLOWED_COMPRESSIONS:
-            compress = extension
-
-    return protocol, compress
+    pass
 
 
 class _LazyRequestReader:
@@ -360,54 +349,8 @@ class IOMixinDocList(Iterable[T_doc]):
 
         :return: `DocList` object
         """
-        if cls.doc_type == AnyDoc or cls.doc_type == BaseDoc:
-            raise TypeError(
-                'There is no document schema defined. '
-                f'Please specify the {cls}\'s Document type using `{cls}[MyDoc]`.'
-            )
+        pass
 
-        if file_path.startswith('http'):
-            import urllib.request
-
-            with urllib.request.urlopen(file_path) as f:
-                file = StringIO(f.read().decode(encoding))
-                return cls._from_csv_file(file, dialect)
-        else:
-            with open(file_path, 'r', encoding=encoding) as fp:
-                return cls._from_csv_file(fp, dialect)
-
-    @classmethod
-    def _from_csv_file(
-        cls: Type['T'],
-        file: Union[StringIO, TextIOWrapper],
-        dialect: Union[str, csv.Dialect],
-    ) -> 'T':
-        rows = csv.DictReader(file, dialect=dialect)
-
-        doc_type = cls.doc_type
-        docs = []
-
-        field_names: List[str] = (
-            [] if rows.fieldnames is None else [str(f) for f in rows.fieldnames]
-        )
-        if field_names is None or len(field_names) == 0:
-            raise TypeError("No field names are given.")
-
-        valid_paths = _all_access_paths_valid(
-            doc_type=doc_type, access_paths=field_names
-        )
-        if not all(valid_paths):
-            raise ValueError(
-                f'Column names do not match the schema of the DocList\'s '
-                f'document type ({cls.doc_type.__name__}): '
-                f'{list(compress(field_names, [not v for v in valid_paths]))}'
-            )
-
-        for access_path2val in rows:
-            doc_dict: Dict[Any, Any] = _access_path_dict_to_nested_dict(access_path2val)
-            docs.append(doc_type.parse_obj(doc_dict))
-
-        return cls(docs)
 
     def to_csv(
         self, file_path: str, dialect: Union[str, csv.Dialect] = 'excel'
@@ -428,21 +371,7 @@ class IOMixinDocList(Iterable[T_doc]):
             `'unix'` (for csv file generated on UNIX systems).
 
         """
-        if self.doc_type == AnyDoc or self.doc_type == BaseDoc:
-            raise TypeError(
-                f'{type(self)} must be homogeneous to be converted to a csv.'
-                'There is no document schema defined. '
-                f'Please specify the {type(self)}\'s Document type using `{type(self)}[MyDoc]`.'
-            )
-        fields = self.doc_type._get_access_paths()
-
-        with open(file_path, 'w') as csv_file:
-            writer = csv.DictWriter(csv_file, fieldnames=fields, dialect=dialect)
-            writer.writeheader()
-
-            for doc in self:
-                doc_dict = _dict_to_access_paths(doc.dict())
-                writer.writerow(doc_dict)
+        pass
 
     @classmethod
     def from_dataframe(cls: Type['T'], df: 'pd.DataFrame') -> 'T':
@@ -486,38 +415,7 @@ class IOMixinDocList(Iterable[T_doc]):
         :return: `DocList` where each Document contains the information of one
             corresponding row of the `pandas.DataFrame`.
         """
-        from docarray import DocList
-
-        if cls.doc_type == AnyDoc or cls.doc_type == BaseDoc:
-            raise TypeError(
-                'There is no document schema defined. '
-                f'Please specify the {cls}\'s Document type using `{cls}[MyDoc]`.'
-            )
-
-        doc_type = cls.doc_type
-        docs = DocList.__class_getitem__(doc_type)()
-        field_names = df.columns.tolist()
-
-        if field_names is None or len(field_names) == 0:
-            raise TypeError("No field names are given.")
-
-        valid_paths = _all_access_paths_valid(
-            doc_type=doc_type, access_paths=field_names
-        )
-        if not all(valid_paths):
-            raise ValueError(
-                f'Column names do not match the schema of the DocList\'s '
-                f'document type ({cls.doc_type.__name__}): '
-                f'{list(compress(field_names, [not v for v in valid_paths]))}'
-            )
-
-        for row in df.itertuples():
-            access_path2val = row._asdict()
-            access_path2val.pop('index', None)
-            doc_dict = _access_path_dict_to_nested_dict(access_path2val)
-            docs.append(doc_type.parse_obj(doc_dict))
-
-        return docs
+        pass
 
     def to_dataframe(self) -> 'pd.DataFrame':
         """
@@ -529,41 +427,9 @@ class IOMixinDocList(Iterable[T_doc]):
 
         :return: `pandas.DataFrame`
         """
-        if TYPE_CHECKING:
-            import pandas as pd
-        else:
-            pd = import_library('pandas', raise_error=True)
-
-        if self.doc_type == AnyDoc:
-            raise TypeError(
-                'DocList must be homogeneous to be converted to a DataFrame.'
-                'There is no document schema defined. '
-                'Please specify the DocList\'s Document type using `DocList[MyDoc]`.'
-            )
-
-        fields = self.doc_type._get_access_paths()
-        df = pd.DataFrame(columns=fields)
-
-        for doc in self:
-            doc_dict = _dict_to_access_paths(doc.dict())
-            doc_dict = {k: [v] for k, v in doc_dict.items()}
-            df = pd.concat([df, pd.DataFrame.from_dict(doc_dict)], ignore_index=True)
-
-        return df
+        pass
 
     # Methods to load from/to files in different formats
-    @property
-    def _stream_header(self) -> bytes:
-        # Binary format for streaming case
-
-        # V2 DocList streaming serialization format
-        # | 1 byte | 8 bytes | 4 bytes | variable(DocArray >=0.30) | 4 bytes | variable(DocArray >=0.30) ...
-
-        # 1 byte (uint8)
-        version_byte = b'\x02'
-        # 8 bytes (uint64)
-        num_docs_as_bytes = len(self).to_bytes(8, 'big', signed=False)
-        return version_byte + num_docs_as_bytes
 
     @classmethod
     @abstractmethod
@@ -691,77 +557,8 @@ class IOMixinDocList(Iterable[T_doc]):
         :param show_progress: show progress bar, only works when protocol is `pickle` or `protobuf`
         :return: a generator of `Document` objects
         """
+        pass
 
-        from rich import filesize
-
-        with file_ctx as f:
-            version_numdocs_lendoc0 = f.read(9)
-            # 1 byte (uint8)
-            version_num = int.from_bytes(
-                version_numdocs_lendoc0[0:1], 'big', signed=False
-            )
-            if version_num != 2:
-                raise ValueError(
-                    f'Unsupported version number {version_num} in binary format, expected 2'
-                )
-
-            # 8 bytes (uint64)
-            num_docs = int.from_bytes(version_numdocs_lendoc0[1:9], 'big', signed=False)
-
-            if show_progress:
-                from docarray.utils._internal.progress_bar import _get_progressbar
-
-                pbar, t = _get_progressbar(
-                    'Deserializing', disable=not show_progress, total=num_docs
-                )
-            else:
-                from contextlib import nullcontext
-
-                pbar = nullcontext()
-
-            with pbar:
-                if show_progress:
-                    _total_size = 0
-                    pbar.start_task(t)
-                for _ in range(num_docs):
-                    # 4 bytes (uint32)
-                    len_current_doc_in_bytes = int.from_bytes(
-                        f.read(4), 'big', signed=False
-                    )
-                    load_protocol: ProtocolType = protocol
-                    yield cls.doc_type.from_bytes(
-                        f.read(len_current_doc_in_bytes),
-                        protocol=load_protocol,
-                        compress=compress,
-                    )
-                    if show_progress:
-                        _total_size += len_current_doc_in_bytes
-                        pbar.update(
-                            t, advance=1, total_size=str(filesize.decimal(_total_size))
-                        )
-
-    @staticmethod
-    def _get_file_context(
-        file: Union[str, bytes, pathlib.Path, io.BufferedReader, _LazyRequestReader],
-        protocol: ProtocolType,
-        compress: Optional[str] = None,
-    ) -> Tuple[
-        Union[nullcontext, io.BufferedReader], Optional[ProtocolType], Optional[str]
-    ]:
-        load_protocol: Optional[ProtocolType] = protocol
-        load_compress: Optional[str] = compress
-        file_ctx: Union[nullcontext, io.BufferedReader]
-        if isinstance(file, (io.BufferedReader, _LazyRequestReader, bytes)):
-            file_ctx = nullcontext(file)
-        # by checking path existence we allow file to be of type Path, LocalPath, PurePath and str
-        elif isinstance(file, (str, pathlib.Path)) and os.path.exists(file):
-            load_protocol, load_compress = _protocol_and_compress_from_file_path(
-                file, protocol, compress
-            )
-            file_ctx = open(file, 'rb')
-        else:
-            raise FileNotFoundError(f'cannot find file {file}')
-        return file_ctx, load_protocol, load_compress
 
     @classmethod
     def load_binary(
@@ -792,26 +589,7 @@ class IOMixinDocList(Iterable[T_doc]):
         :return: a `DocList` object
 
         """
-        file_ctx, load_protocol, load_compress = cls._get_file_context(
-            file, protocol, compress
-        )
-        if streaming:
-            if load_protocol not in SINGLE_PROTOCOLS:
-                raise ValueError(
-                    f'`streaming` is only available when using {" or ".join(map(lambda x: f"`{x}`", SINGLE_PROTOCOLS))} as protocol, '
-                    f'got {load_protocol}'
-                )
-            else:
-                return cls._load_binary_stream(
-                    file_ctx,
-                    protocol=load_protocol,
-                    compress=load_compress,
-                    show_progress=show_progress,
-                )
-        else:
-            return cls._load_binary_all(
-                file_ctx, load_protocol, load_compress, show_progress
-            )
+        pass
 
     def save_binary(
         self,
@@ -840,21 +618,4 @@ class IOMixinDocList(Iterable[T_doc]):
         :param compress: compress algorithm to use between `lz4`, `bz2`, `lzma`, `zlib`, `gzip`
         :param show_progress: show progress bar, only works when protocol is `pickle` or `protobuf`
         """
-        if isinstance(file, io.BufferedWriter):
-            file_ctx = nullcontext(file)
-        else:
-            _protocol, _compress = _protocol_and_compress_from_file_path(file)
-
-            if _protocol is not None:
-                protocol = _protocol
-            if _compress is not None:
-                compress = _compress
-
-            file_ctx = open(file, 'wb')
-
-        self.to_bytes(
-            protocol=protocol,
-            compress=compress,
-            file_ctx=file_ctx,
-            show_progress=show_progress,
-        )
+        pass

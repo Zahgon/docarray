@@ -47,16 +47,6 @@ class AbstractNumpyBasedBackend(AbstractComputationalBackend[T], ABC):
         """
         return cls._cast_output(cls._module.squeeze(cls._get_tensor(tensor)))
 
-    @classmethod
-    def empty(
-        cls,
-        shape: Tuple[int, ...],
-        dtype: Optional[Any] = None,
-        device: Optional[Any] = None,
-    ) -> T:
-        if cls._module is np and device is not None:
-            raise NotImplementedError('Numpy does not support devices (GPU).')
-        return cls._cast_output(cls._module.empty(shape, dtype=dtype))
 
     @classmethod
     def shape(cls, array: T) -> Tuple[int, ...]:
@@ -78,7 +68,7 @@ class AbstractNumpyBasedBackend(AbstractComputationalBackend[T], ABC):
     @classmethod
     def isnan(cls, tensor: T) -> T:
         """Check element-wise for nan and return result as a boolean array"""
-        return cls._cast_output(cls._module.isnan(cls._get_tensor(tensor)))
+        pass
 
     @classmethod
     def copy(cls, tensor: 'T') -> 'T':

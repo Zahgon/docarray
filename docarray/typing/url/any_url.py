@@ -253,22 +253,7 @@ else:
             path without prefix.
             If `scheme` is missing, we assume it is a local file path.
             """
-            scheme = parts['scheme']
-            if scheme is None:
-                # allow missing scheme, unlike pydantic
-                pass
-
-            elif cls.allowed_schemes and scheme.lower() not in cls.allowed_schemes:
-                raise errors.UrlSchemePermittedError(set(cls.allowed_schemes))
-
-            if validate_port:
-                cls._validate_port(parts['port'])
-
-            user = parts['user']
-            if cls.user_required and user is None:
-                raise errors.UrlUserInfoError()
-
-            return parts
+            pass
 
         @classmethod
         def build(
@@ -289,24 +274,7 @@ else:
             The only difference from the pydantic implementation is that we allow
             missing `scheme`, making it possible to pass a file path without prefix.
             """
-
-            # allow missing scheme, unlike pydantic
-            scheme_ = scheme if scheme is not None else ''
-            url = super().build(
-                scheme=scheme_,
-                user=user,
-                password=password,
-                host=host,
-                port=port,
-                path=path,
-                query=query,
-                fragment=fragment,
-                **_kwargs,
-            )
-            if scheme is None and url.startswith('://'):
-                # remove the `://` prefix, since scheme is missing
-                url = url[3:]
-            return url
+            pass
 
         @classmethod
         def from_protobuf(cls: Type[T], pb_msg: 'str') -> T:

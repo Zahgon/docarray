@@ -38,18 +38,7 @@ class ElasticV7DocIndex(ElasticDocIndex):
     class QueryBuilder(ElasticDocIndex.QueryBuilder):
         def build(self, *args, **kwargs) -> Any:
             """Build the elastic search v7 query object."""
-            if (
-                'script_score' in self._query['query']
-                and 'bool' in self._query['query']
-                and len(self._query['query']['bool']) > 0
-            ):
-                self._query['query']['script_score']['query'] = {}
-                self._query['query']['script_score']['query']['bool'] = self._query[
-                    'query'
-                ]['bool']
-                del self._query['query']['bool']
-
-            return self._query
+            pass
 
         def find(
             self,
@@ -93,8 +82,6 @@ class ElasticV7DocIndex(ElasticDocIndex):
 
         hosts: Union[str, List[str], None] = 'http://localhost:9200'  # type: ignore
 
-        def dense_vector_config(self):
-            return {'dims': 128}
 
     @dataclass
     class RuntimeConfig(ElasticDocIndex.RuntimeConfig):
@@ -119,15 +106,7 @@ class ElasticV7DocIndex(ElasticDocIndex):
         :param query: the query to execute
         :return: the result of the query
         """
-        if args or kwargs:
-            raise ValueError(
-                f'args and kwargs not supported for `execute_query` on {type(self)}'
-            )
-
-        resp = self._client.search(index=self.index_name, body=query)
-        docs, scores = self._format_response(resp)
-
-        return _FindResult(documents=docs, scores=parse_obj_as(NdArray, scores))
+        pass
 
     ###############################################
     # Helpers                                     #
@@ -152,15 +131,8 @@ class ElasticV7DocIndex(ElasticDocIndex):
     # API Wrappers                                #
     ###############################################
 
-    def _client_put_mapping(self, mappings: Dict[str, Any]):
-        self._client.indices.put_mapping(index=self.index_name, body=mappings)
 
-    def _client_create(self, mappings: Dict[str, Any]):
-        body = {'mappings': mappings}
-        self._client.indices.create(index=self.index_name, body=body)
 
-    def _client_put_settings(self, settings: Dict[str, Any]):
-        self._client.indices.put_settings(index=self.index_name, body=settings)
 
     def _client_mget(self, ids: Sequence[str]):
         return self._client.mget(index=self.index_name, body={'ids': ids})

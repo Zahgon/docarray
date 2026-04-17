@@ -424,18 +424,7 @@ class IOMixin(Iterable[Tuple[str, Any]]):
 
         :return: list of all access paths
         """
-        from docarray import BaseDoc
-
-        paths = []
-        for field in cls._docarray_fields().keys():
-            field_type = cls._get_field_annotation(field)
-            if not is_union_type(field_type) and safe_issubclass(field_type, BaseDoc):
-                sub_paths = field_type._get_access_paths()
-                for path in sub_paths:
-                    paths.append(f'{field}__{path}')
-            else:
-                paths.append(field)
-        return paths
+        pass
 
     @classmethod
     def from_json(

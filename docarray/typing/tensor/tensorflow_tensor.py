@@ -260,7 +260,7 @@ class TensorFlowTensor(AbstractTensor, Generic[ShapeT], metaclass=metaTensorFlow
         Convert `TensorFlowTensor` into a json compatible object
         :return: a representation of the tensor compatible with orjson
         """
-        return self.unwrap().numpy()
+        pass
 
     def to_protobuf(self) -> 'NdArrayProto':
         """

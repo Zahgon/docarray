@@ -95,61 +95,7 @@ class RedisDocumentIndex(BaseDocIndex, Generic[TSchema]):
 
     def _create_index(self) -> None:
         """Create a new index in the Redis database if it doesn't already exist."""
-        if not self._check_index_exists(self.index_name):
-            schema = []
-            for column, info in self._column_infos.items():
-                if safe_issubclass(info.docarray_type, AnyDocArray):
-                    continue
-                elif info.db_type == VectorField:
-                    space = info.config.get('space') or info.config.get('distance')
-                    if not space or space.upper() not in VALID_DISTANCES:
-                        raise ValueError(
-                            f"Invalid distance metric '{space}' provided. "
-                            f"Must be one of: {', '.join(VALID_DISTANCES)}"
-                        )
-                    space = space.upper()
-                    attributes = {
-                        'TYPE': 'FLOAT32',
-                        'DIM': info.n_dim or info.config.get('dim'),
-                        'DISTANCE_METRIC': space,
-                        'EF_CONSTRUCTION': info.config['ef_construction'],
-                        'EF_RUNTIME': info.config['ef_runtime'],
-                        'M': info.config['m'],
-                        'INITIAL_CAP': info.config['initial_cap'],
-                    }
-                    attributes = {
-                        name: value for name, value in attributes.items() if value
-                    }
-                    algorithm = info.config['algorithm'].upper()
-                    if algorithm not in VALID_ALGORITHMS:
-                        raise ValueError(
-                            f"Invalid algorithm '{algorithm}' provided. "
-                            f"Must be one of: {', '.join(VALID_ALGORITHMS)}"
-                        )
-                    schema.append(
-                        info.db_type(
-                            '$.' + column,
-                            algorithm=algorithm,
-                            attributes=attributes,
-                            as_name=column,
-                        )
-                    )
-                elif column in ['id', 'parent_id']:
-                    schema.append(TagField('$.' + column, as_name=column))
-                else:
-                    schema.append(info.db_type('$.' + column, as_name=column))
-
-            # Create Redis Index
-            self._client.ft(self.index_name).create_index(
-                schema,
-                definition=IndexDefinition(
-                    prefix=[self._prefix], index_type=IndexType.JSON
-                ),
-            )
-
-            self._logger.info(f'index {self.index_name} has been created')
-        else:
-            self._logger.info(f'connected to existing {self.index_name} index')
+        pass
 
     def _check_index_exists(self, index_name: str) -> bool:
         """
@@ -158,37 +104,13 @@ class RedisDocumentIndex(BaseDocIndex, Generic[TSchema]):
         :param index_name: The name of the index.
         :return: True if the index exists, False otherwise.
         """
-        try:
-            self._client.ft(index_name).info()
-        except:  # noqa: E722
-            self._logger.info(f'Index {index_name} does not exist')
-            return False
-        self._logger.info(f'Index {index_name} already exists')
-        return True
+        pass
 
-    @property
-    def index_name(self):
-        default_index_name = (
-            self._schema.__name__.lower() if self._schema is not None else None
-        )
-        if default_index_name is None:
-            err_msg = (
-                'A RedisDocumentIndex must be typed with a Document type. '
-                'To do so, use the syntax: RedisDocumentIndex[DocumentType]'
-            )
-
-            self._logger.error(err_msg)
-            raise ValueError(err_msg)
-        index_name = self._db_config.index_name or default_index_name
-        self._logger.debug(f'Retrieved index name: {index_name}')
-        return index_name
 
     @property
     def out_schema(self) -> Type[BaseDoc]:
         """Return the real schema of the index."""
-        if self._is_subindex:
-            return self._ori_schema
-        return cast(Type[BaseDoc], self._schema)
+        pass
 
     class QueryBuilder(BaseDocIndex.QueryBuilder):
         def __init__(self, query: Optional[List[Tuple[str, Dict]]] = None):
@@ -198,7 +120,7 @@ class RedisDocumentIndex(BaseDocIndex, Generic[TSchema]):
 
         def build(self, *args, **kwargs) -> Any:
             """Build the query object."""
-            return self._queries
+            pass
 
         find = _collect_query_args('find')
         filter = _collect_query_args('filter')
@@ -269,20 +191,7 @@ class RedisDocumentIndex(BaseDocIndex, Generic[TSchema]):
         :param python_type: Python type.
         :return: Corresponding Redis type.
         """
-        type_map = {
-            int: NumericField,
-            float: NumericField,
-            str: TextField,
-            bytes: TextField,
-            np.ndarray: VectorField,
-            list: VectorField,
-            AbstractTensor: VectorField,
-        }
-
-        for py_type, redis_type in type_map.items():
-            if safe_issubclass(python_type, py_type):
-                return redis_type
-        raise ValueError(f'Unsupported column type for {type(self)}: {python_type}')
+        pass
 
     @staticmethod
     def _generate_items(
@@ -364,12 +273,7 @@ class RedisDocumentIndex(BaseDocIndex, Generic[TSchema]):
 
         :param doc_ids: A sequence of document ids to be deleted.
         """
-        doc_ids = [self._prefix + id for id in doc_ids if self._doc_exists(id)]
-        if doc_ids:
-            for batch in self._generate_batches(
-                doc_ids, batch_size=self._runtime_config.batch_size
-            ):
-                self._client.delete(*batch)
+        pass
 
     def _doc_exists(self, doc_id: str) -> bool:
         """
@@ -378,7 +282,7 @@ class RedisDocumentIndex(BaseDocIndex, Generic[TSchema]):
         :param doc_id: The id of the document.
         :return: True if the document exists, False otherwise.
         """
-        return bool(self._client.exists(self._prefix + doc_id))
+        pass
 
     @staticmethod
     def _generate_batches(data, batch_size):
@@ -415,37 +319,7 @@ class RedisDocumentIndex(BaseDocIndex, Generic[TSchema]):
         :param query: Query to execute on the index.
         :return: Query results.
         """
-        components: Dict[str, List[Dict[str, Any]]] = {}
-        for component, value in query:
-            if component not in components:
-                components[component] = []
-            components[component].append(value)
-
-        if (
-            len(components) != 2
-            or len(components.get('find', [])) != 1
-            or len(components.get('filter', [])) != 1
-        ):
-            raise ValueError(
-                'The query must contain exactly one "find" and "filter" components.'
-            )
-
-        filter_query = components['filter'][0]['filter_query']
-        query = components['find'][0]['query']
-        search_field = components['find'][0]['search_field']
-        limit = (
-            components['find'][0].get('limit')
-            or components['filter'][0].get('limit')
-            or 10
-        )
-        docs, scores = self._hybrid_search(
-            query=query,
-            filter_query=filter_query,
-            search_field=search_field,
-            limit=limit,
-        )
-        docs = self._dict_list_to_docarray(docs)
-        return FindResult(documents=docs, scores=scores)
+        pass
 
     def _hybrid_search(
         self, query: np.ndarray, filter_query: str, search_field: str, limit: int
@@ -566,23 +440,7 @@ class RedisDocumentIndex(BaseDocIndex, Generic[TSchema]):
         :param search_field: The field to search the query.
         :return: Search results.
         """
-        query_str = '|'.join(query.split(' '))
-        q = (
-            Query(f'@{search_field}:{query_str}')
-            .scorer(self._text_scorer)
-            .with_scores()
-            .paging(0, limit)
-        )
-
-        results = self._client.ft(index_name=self.index_name).search(q).docs
-
-        scores: NdArray = NdArray._docarray_from_native(
-            np.array([document['score'] for document in results])
-        )
-
-        docs = [json.loads(doc.json) for doc in results]
-
-        return _FindResult(documents=docs, scores=scores)
+        pass
 
     def _text_search_batched(
         self, queries: Sequence[str], limit: int, search_field: str = ''
@@ -595,12 +453,4 @@ class RedisDocumentIndex(BaseDocIndex, Generic[TSchema]):
         :param search_field: The field to search the queries.
         :return: Search results.
         """
-        docs, scores = [], []
-        for query in queries:
-            results = self._text_search(
-                query=query, search_field=search_field, limit=limit
-            )
-            docs.append(results.documents)
-            scores.append(results.scores)
-
-        return _FindResultBatched(documents=docs, scores=scores)
+        pass

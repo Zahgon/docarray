@@ -78,46 +78,21 @@ class MongoDBAtlasDocumentIndex(BaseDocIndex, Generic[TSchema]):
         The easiest way is to pass index_name=<collection_name> as a kwarg.
         Otherwise, a rational default uses the name of the DocumentTypes that it contains.
         """
+        pass
 
-        if self._db_config.index_name is not None:
-            return self._db_config.index_name
-        else:
-            # Create a reasonable default
-            if not self._schema:
-                raise ValueError(
-                    'A MongoDBAtlasDocumentIndex must be typed with a Document type.'
-                    'To do so, use the syntax: MongoDBAtlasDocumentIndex[DocumentType]'
-                )
-            schema_name = self._schema.__name__.lower()
-            logger.debug(f"db_config.index_name was not set. Using {schema_name}")
-            return schema_name
 
-    @property
-    def _database_name(self):
-        return self._db_config.database_name
-
-    @cached_property
-    def _client(self):
-        return self._connect_to_mongodb_atlas(
-            atlas_connection_uri=self._db_config.mongo_connection_uri
-        )
 
     @property
     def _collection(self):
         """MongoDB Collection"""
-        return self._client[self._database_name][self.index_name]
+        pass
 
     @staticmethod
     def _connect_to_mongodb_atlas(atlas_connection_uri: str):
         """
         Establish a connection to MongoDB Atlas.
         """
-
-        client = MongoClient(
-            atlas_connection_uri,
-            # driver=DriverInfo(name="docarray", version=version("docarray"))
-        )
-        return client
+        pass
 
     def _create_indexes(self):
         """Create a new index in the MongoDB database if it doesn't already exist."""
@@ -160,29 +135,7 @@ class MongoDBAtlasDocumentIndex(BaseDocIndex, Generic[TSchema]):
 
         def build(self, limit: int = 1, *args, **kwargs) -> Any:
             """Build a `Query` that can be passed to `execute_query`."""
-            search_fields: Dict[str, np.ndarray] = collections.defaultdict(list)
-            filters: List[Any] = []
-            text_searches: List[Any] = []
-            for method, kwargs in self._queries:
-                if method == 'find':
-                    search_field = kwargs['search_field']
-                    search_fields[search_field].append(kwargs["query"])
-
-                elif method == 'filter':
-                    filters.append(kwargs)
-                else:
-                    text_searches.append(kwargs)
-
-            vector_fields = {
-                field: np.average(vectors, axis=0)
-                for field, vectors in search_fields.items()
-            }
-            return MongoDBAtlasDocumentIndex.Query(
-                vector_fields=vector_fields,
-                filters=filters,
-                text_searches=text_searches,
-                limit=limit,
-            )
+            pass
 
         find = _collect_query_required_args('find', {'search_field', 'query'})
         filter = _collect_query_required_args('filter', {'query'})
@@ -205,90 +158,7 @@ class MongoDBAtlasDocumentIndex(BaseDocIndex, Generic[TSchema]):
         :param kwargs: keyword arguments to pass to the query
         :return: the result of the query
         """
-        if not isinstance(query, MongoDBAtlasDocumentIndex.Query):
-            raise ValueError(
-                "Expected MongoDBAtlasDocumentIndex.Query. Found {type(query)=}."
-                "For native calls to MongoDBAtlasDocumentIndex, simply call filter()"
-            )
-
-        if len(query.vector_fields) > 1:
-            self._logger.warning(
-                f"{len(query.vector_fields)} embedding vectors have been provided to the query. They will be averaged."
-            )
-        if len(query.text_searches) > 1:
-            self._logger.warning(
-                f"{len(query.text_searches)} text searches will be performed, and each receive a ranked score."
-            )
-
-        # collect filters
-        filters: List[Dict[str, Any]] = []
-        for filter_ in query.filters:
-            filters.append(filter_['query'])
-
-        # check if hybrid search is needed.
-        hybrid = len(query.vector_fields) + len(query.text_searches) > 1
-        if hybrid:
-            if len(query.vector_fields) > 1:
-                raise NotImplementedError(
-                    "Hybrid Search on multiple Vector Indexes has yet to be done."
-                )
-            pipeline = self._hybrid_search(
-                query.vector_fields, query.text_searches, filters, query.limit
-            )
-        else:
-            if query.text_searches:
-                # it is a simple text search, perhaps with filters.
-                text_stage = self._text_search_stage(**query.text_searches[0])
-                pipeline = [
-                    text_stage,
-                    {"$match": {"$and": filters} if filters else {}},
-                    {
-                        '$project': self._project_fields(
-                            extra_fields={"score": {'$meta': 'searchScore'}}
-                        )
-                    },
-                    {"$limit": query.limit},
-                ]
-            elif query.vector_fields:
-                # it is a simple vector search, perhaps with filters.
-                assert (
-                    len(query.vector_fields) == 1
-                ), "Query contains more than one vector_field."
-                field, vector_query = list(query.vector_fields.items())[0]
-                pipeline = [
-                    self._vector_search_stage(
-                        query=vector_query,
-                        search_field=field,
-                        limit=query.limit,
-                        filters=filters,
-                    ),
-                    {
-                        '$project': self._project_fields(
-                            extra_fields={"score": {'$meta': 'vectorSearchScore'}}
-                        )
-                    },
-                ]
-            # it is only a filter search.
-            else:
-                pipeline = [{"$match": {"$and": filters}}]
-
-        with self._collection.aggregate(pipeline) as cursor:
-            results, scores = self._mongo_to_docs(cursor)
-        docs = self._dict_list_to_docarray(results)
-
-        if hybrid and score_breakdown and results:
-            score_breakdown = collections.defaultdict(list)
-            score_fields = [key for key in results[0] if "score" in key]
-            for res in results:
-                score_breakdown["id"].append(res["id"])
-                for sf in score_fields:
-                    score_breakdown[sf].append(res[sf])
-            logger.debug(score_breakdown)
-            return HybridResult(
-                documents=docs, scores=scores, score_breakdown=score_breakdown
-            )
-
-        return _FindResult(documents=docs, scores=scores)
+        pass
 
     @dataclass
     class DBConfig(BaseDocIndex.DBConfig):
@@ -329,22 +199,7 @@ class MongoDBAtlasDocumentIndex(BaseDocIndex, Generic[TSchema]):
         :return: the corresponding database column type,
             or None if ``python_type`` is not supported.
         """
-
-        type_map = {
-            int: bson.BSONNUM,
-            float: bson.BSONDEC,
-            collections.OrderedDict: bson.BSONOBJ,
-            str: bson.BSONSTR,
-            bytes: bson.BSONBIN,
-            dict: bson.BSONOBJ,
-            np.ndarray: bson.BSONARR,
-            AbstractTensor: bson.BSONARR,
-        }
-
-        for py_type, mongo_types in type_map.items():
-            if safe_issubclass(python_type, py_type):
-                return mongo_types
-        raise ValueError(f'Unsupported column type for {type(self)}: {python_type}')
+        pass
 
     def _doc_to_mongo(self, doc):
         result = doc.copy()
@@ -356,8 +211,6 @@ class MongoDBAtlasDocumentIndex(BaseDocIndex, Generic[TSchema]):
         result["_id"] = result.pop("id")
         return result
 
-    def _docs_to_mongo(self, docs):
-        return [self._doc_to_mongo(doc) for doc in docs]
 
     @staticmethod
     def _mongo_to_doc(mongo_doc: dict) -> dict:
@@ -414,15 +267,14 @@ class MongoDBAtlasDocumentIndex(BaseDocIndex, Generic[TSchema]):
         Check if index is empty by comparing the number of documents to zero.
         :return: True if the index is empty, False otherwise.
         """
-        return self.num_docs() == 0
+        pass
 
     def _del_items(self, doc_ids: Sequence[str]) -> None:
         """Delete Documents from the index.
 
         :param doc_ids: ids to delete from the Document Store
         """
-        mg_filter = {"_id": {"$in": doc_ids}}
-        self._collection.delete_many(mg_filter)
+        pass
 
     def _get_items(
         self, doc_ids: Sequence[str]
@@ -597,8 +449,7 @@ class MongoDBAtlasDocumentIndex(BaseDocIndex, Generic[TSchema]):
         :param doc_id: The id of a document to check.
         :return: True if the document exists in the index, False otherwise.
         """
-        doc = self._collection.find_one({"_id": doc_id})
-        return bool(doc)
+        pass
 
     def _find(
         self,
@@ -745,22 +596,7 @@ class MongoDBAtlasDocumentIndex(BaseDocIndex, Generic[TSchema]):
         :param search_field: name of the field to search on
         :return: a named tuple containing `documents` and `scores`
         """
-        text_stage = self._text_search_stage(query=query, search_field=search_field)
-
-        pipeline = [
-            text_stage,
-            {
-                '$project': self._project_fields(
-                    extra_fields={'score': {'$meta': 'searchScore'}}
-                )
-            },
-            {"$limit": limit},
-        ]
-
-        with self._collection.aggregate(pipeline) as cursor:
-            documents, scores = self._mongo_to_docs(cursor)
-
-        return _FindResult(documents=documents, scores=scores)
+        pass
 
     def _text_search_batched(
         self,
@@ -775,16 +611,7 @@ class MongoDBAtlasDocumentIndex(BaseDocIndex, Generic[TSchema]):
         :param search_field: name of the field to search on
         :return: a named tuple containing `documents` and `scores`
         """
-        # NOTE: in standard implementations,
-        # `search_field` is equal to the column name to search on
-        documents, scores = [], []
-        for query in queries:
-            results = self._text_search(
-                query=query, search_field=search_field, limit=limit
-            )
-            documents.append(results.documents)
-            scores.append(results.scores)
-        return _FindResultBatched(documents=documents, scores=scores)
+        pass
 
     def _filter_by_parent_id(self, id: str) -> Optional[List[str]]:
         """Filter the ids of the subindex documents given id of root document.

@@ -14,8 +14,6 @@ if TYPE_CHECKING:
 class UpdateMixin:
     _docarray_fields: Dict[str, 'ModelField']
 
-    def _get_string_for_regex_filter(self):
-        return str(self)
 
     @classmethod
     @abstractmethod

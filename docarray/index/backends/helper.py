@@ -7,15 +7,6 @@ from docarray.utils.find import FindResult
 
 
 def _collect_query_args(method_name: str):  # TODO: use partialmethod instead
-    def inner(self, *args, **kwargs):
-        if args:
-            raise ValueError(
-                f'Positional arguments are not supported for '
-                f'`{type(self)}.{method_name}`.'
-                f' Use keyword arguments instead.'
-            )
-        updated_query = self._queries + [(method_name, kwargs)]
-        return type(self)(updated_query)
 
     return inner
 
@@ -37,22 +28,6 @@ def _collect_query_required_args(method_name: str, required_args: Set[str] = Non
     if required_args is None:
         required_args = set()
 
-    def inner(self, *args, **kwargs):
-        if args:
-            raise ValueError(
-                f"Positional arguments are not supported for "
-                f"`{type(self)}.{method_name}`. "
-                f"Use keyword arguments instead."
-            )
-
-        missing_args = required_args - set(kwargs.keys())
-        if missing_args:
-            raise ValueError(
-                f"`{type(self)}.{method_name}` is missing required argument(s): {', '.join(missing_args)}"
-            )
-
-        updated_query = self._queries + [(method_name, kwargs)]
-        return type(self)(updated_query)
 
     return inner
 
@@ -75,35 +50,4 @@ def _execute_find_and_filter_query(
         can correspond to better matches, and vice versa.
     :return: Sorted documents and their corresponding scores.
     """
-    docs_found = DocList.__class_getitem__(cast(Type[BaseDoc], doc_index._schema))([])
-    filter_conditions = []
-    filter_limit = None
-    doc_to_score: Dict[BaseDoc, Any] = {}
-    for op, op_kwargs in query:
-        if op == 'find':
-            docs, scores = doc_index.find(**op_kwargs)
-            docs_found.extend(docs)
-            doc_to_score.update(zip(docs.__getattribute__('id'), scores))
-        elif op == 'filter':
-            filter_conditions.append(op_kwargs['filter_query'])
-            filter_limit = op_kwargs.get('limit')
-        else:
-            raise ValueError(f'Query operation is not supported: {op}')
-
-    doc_index._logger.debug(f'Executing query {query}')
-    docs_filtered = docs_found
-    for cond in filter_conditions:
-        docs_cls = DocList.__class_getitem__(cast(Type[BaseDoc], doc_index._schema))
-        docs_filtered = docs_cls(filter_docs(docs_filtered, cond))
-
-    if filter_limit:
-        docs_filtered = docs_filtered[:filter_limit]
-
-    doc_index._logger.debug(f'{len(docs_filtered)} results found')
-    docs_and_scores = zip(
-        docs_filtered, (doc_to_score[doc.id] for doc in docs_filtered)
-    )
-    docs_sorted = sorted(docs_and_scores, key=lambda x: x[1], reverse=reverse_order)
-    out_docs, out_scores = zip(*docs_sorted)
-
-    return FindResult(documents=out_docs, scores=out_scores)
+    pass

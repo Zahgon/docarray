@@ -96,7 +96,4 @@ class Mesh3DUrl(Url3D):
         Plot mesh from url.
         This loads the Trimesh instance of the 3D mesh, and then displays it.
         """
-        from IPython.display import display
-
-        mesh = self._load_trimesh_instance(skip_materials=False)
-        display(mesh.show())
+        pass

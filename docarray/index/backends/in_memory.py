@@ -104,14 +104,12 @@ class InMemoryExactNNIndex(BaseDocIndex, Generic[TSchema]):
         :return: the corresponding database column type,
             or None if ``python_type`` is not supported.
         """
-        return python_type
+        pass
 
     @property
     def out_schema(self) -> Type[BaseDoc]:
         """Return the original schema (without the parent_id from new_schema type)"""
-        if self._is_subindex:
-            return self._ori_schema
-        return cast(Type[BaseDoc], self._schema)
+        pass
 
     class QueryBuilder(BaseDocIndex.QueryBuilder):
         def __init__(self, query: Optional[List[Tuple[str, Dict]]] = None):
@@ -121,7 +119,7 @@ class InMemoryExactNNIndex(BaseDocIndex, Generic[TSchema]):
 
         def build(self, *args, **kwargs) -> Any:
             """Build the query object."""
-            return self._queries
+            pass
 
         find = _collect_query_args('find')
         find_batched = _collect_query_args('find_batched')
@@ -206,25 +204,7 @@ class InMemoryExactNNIndex(BaseDocIndex, Generic[TSchema]):
 
         :param doc_ids: ids to delete from the Document Store
         """
-        for field_, type_, _ in self._flatten_schema(cast(Type[BaseDoc], self._schema)):
-            if safe_issubclass(type_, AnyDocArray):
-                for id in doc_ids:
-                    doc_ = self._get_items([id])
-                    if len(doc_) == 0:
-                        raise KeyError(
-                            f"The document (id = '{id}') does not exist in the ExactNNIndexer."
-                        )
-                    sub_ids = [sub_doc.id for sub_doc in getattr(doc_[0], field_)]
-                    del self._subindices[field_][sub_ids]
-
-        indices = []
-        for i, doc in enumerate(self._docs):
-            if doc.id in doc_ids:
-                indices.append(i)
-
-        del self._docs[indices]
-        self._update_ids_to_positions()
-        self._rebuild_embedding()
+        pass
 
     def _ori_items(self, doc: BaseDoc) -> BaseDoc:
         """
@@ -297,11 +277,7 @@ class InMemoryExactNNIndex(BaseDocIndex, Generic[TSchema]):
         :param kwargs: keyword arguments to pass to the query
         :return: the result of the query
         """
-        if args or kwargs:
-            raise ValueError(
-                f'args and kwargs not supported for `execute_query` on {type(self)}'
-            )
-        return self._find_and_filter(query)
+        pass
 
     def _find_and_filter(self, query: List[Tuple[str, Dict]]) -> FindResult:
         """
@@ -313,32 +289,7 @@ class InMemoryExactNNIndex(BaseDocIndex, Generic[TSchema]):
         :param query: The query to execute.
         :return: A tuple of retrieved documents and their scores.
         """
-        out_docs = self._docs
-        doc_to_score: Dict[BaseDoc, Any] = {}
-        for op, op_kwargs in query:
-            if op == 'find':
-                out_docs, scores = find(
-                    index=out_docs,
-                    query=op_kwargs['query'],
-                    search_field=op_kwargs['search_field'],
-                    limit=op_kwargs.get('limit', len(out_docs)),
-                    metric=self._column_infos[op_kwargs['search_field']].config[
-                        'space'
-                    ],
-                )
-                doc_to_score.update(zip(out_docs.id, scores))
-            elif op == 'filter':
-                out_docs = filter_docs(out_docs, op_kwargs['filter_query'])
-                if 'limit' in op_kwargs:
-                    out_docs = out_docs[: op_kwargs['limit']]
-            else:
-                raise ValueError(f'Query operation is not supported: {op}')
-
-        scores_and_docs = zip([doc_to_score[doc.id] for doc in out_docs], out_docs)
-        sorted_lists = sorted(scores_and_docs, reverse=True)
-        out_scores, out_docs = zip(*sorted_lists)
-
-        return FindResult(documents=out_docs, scores=out_scores)
+        pass
 
     def find(
         self,
@@ -448,10 +399,7 @@ class InMemoryExactNNIndex(BaseDocIndex, Generic[TSchema]):
         :param limit: maximum number of documents to return
         :return: a DocList containing the documents that match the filter query
         """
-        self._logger.debug(f'Executing `filter` for the query {filter_query}')
-
-        docs = filter_docs(docs=self._docs, query=filter_query)[:limit]
-        return cast(DocList, docs)
+        pass
 
     def _filter(self, filter_query: Any, limit: int) -> Union[DocList, List[Dict]]:
         raise NotImplementedError
@@ -471,19 +419,10 @@ class InMemoryExactNNIndex(BaseDocIndex, Generic[TSchema]):
     ) -> _FindResultBatched:
         raise NotImplementedError(f'{type(self)} does not support text search.')
 
-    def _doc_exists(self, doc_id: str) -> bool:
-        return doc_id in self._get_ids_to_positions()
 
     def persist(self, file: Optional[str] = None) -> None:
         """Persist InMemoryExactNNIndex into a binary file."""
-        DEFAULT_INDEX_FILE_PATH = 'in_memory_index.bin'
-        file_to_save = self._index_file_path or file
-        if file_to_save is None:
-            self._logger.warning(
-                f'persisting index to {DEFAULT_INDEX_FILE_PATH} because no `index_file_path` has been used inside DBConfig and no `file` has been passed as argument'
-            )
-        file_to_save = file_to_save or DEFAULT_INDEX_FILE_PATH
-        self._docs.save_binary(file=file_to_save)
+        pass
 
     def _get_root_doc_id(self, id: str, root: str, sub: str) -> str:
         """Get the root_id given the id of a subindex Document and the root and subindex name
@@ -493,24 +432,7 @@ class InMemoryExactNNIndex(BaseDocIndex, Generic[TSchema]):
         :param sub: subindex name
         :return: the root_id of the Document
         """
-        subindex: InMemoryExactNNIndex = cast(
-            InMemoryExactNNIndex, self._subindices[root]
-        )
-
-        if not sub:
-            sub_doc = subindex._get_items([id], raw=True)
-            parent_id = (
-                sub_doc[0]['parent_id']
-                if isinstance(sub_doc[0], dict)
-                else sub_doc[0].parent_id
-            )
-            return parent_id
-        else:
-            fields = sub.split('__')
-            cur_root_id = subindex._get_root_doc_id(
-                id, fields[0], '__'.join(fields[1:])
-            )
-            return self._get_root_doc_id(cur_root_id, root, '')
+        pass
 
     def _get_ids_to_positions(self) -> Dict[str, int]:
         """

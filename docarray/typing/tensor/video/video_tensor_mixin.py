@@ -167,10 +167,4 @@ class VideoTensorMixin(AbstractTensor, abc.ABC):
 
         :param audio: sound to play with video tensor
         """
-        if is_notebook():
-            from IPython.display import Video, display
-
-            b = self.to_bytes(audio_tensor=audio)
-            display(Video(data=b, embed=True, mimetype='video/mp4'))
-        else:
-            warnings.warn('Display of video is only possible in a notebook.')
+        pass

@@ -59,15 +59,4 @@ class AbstractImageTensor(AbstractTensor, ABC):
         """
         Display image data from tensor in notebook.
         """
-        if is_notebook():
-            PIL = import_library('PIL', raise_error=True)  # noqa: F841
-            from PIL import Image as PILImage
-
-            np_array = self.get_comp_backend().to_numpy(self)
-            img = PILImage.fromarray(np_array)
-
-            from IPython.display import display
-
-            display(img)
-        else:
-            warnings.warn('Display of image is only possible in a notebook.')
+        pass

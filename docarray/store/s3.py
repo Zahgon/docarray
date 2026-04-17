@@ -58,39 +58,7 @@ class S3DocStore(AbstractDocStore):
         :param show_table: If true, a rich table will be printed to the console.
         :return: A list of `DocList` names.
         """
-        bucket, namespace = namespace.split('/', 1)
-        s3 = boto3.resource('s3')
-        s3_bucket = s3.Bucket(bucket)
-        da_files = [
-            obj
-            for obj in s3_bucket.objects.all()
-            if obj.key.startswith(namespace) and obj.key.endswith('.docs')
-        ]
-        da_names = [f.key.split('/')[-1].split('.')[0] for f in da_files]
-
-        if show_table:
-            from rich import box, filesize
-            from rich.console import Console
-            from rich.table import Table
-
-            table = Table(
-                title=f'You have {len(da_files)} DocLists in bucket s3://{bucket} under the namespace "{namespace}"',
-                box=box.SIMPLE,
-                highlight=True,
-            )
-            table.add_column('Name')
-            table.add_column('Last Modified', justify='center')
-            table.add_column('Size')
-
-            for da_name, da_file in zip(da_names, da_files):
-                table.add_row(
-                    da_name,
-                    str(da_file.last_modified),
-                    str(filesize.decimal(da_file.size)),
-                )
-
-            Console().print(table)
-        return da_names
+        pass
 
     @staticmethod
     def delete(name: str, missing_ok: bool = True) -> bool:
@@ -100,21 +68,7 @@ class S3DocStore(AbstractDocStore):
         :param missing_ok: If true, no error will be raised if the object does not exist.
         :return: True if the object was deleted, False if it did not exist.
         """
-        bucket, name = name.split('/', 1)
-        s3 = boto3.resource('s3')
-        object = s3.Object(bucket, name + '.docs')
-        try:
-            object.load()
-        except botocore.exceptions.ClientError as e:
-            if e.response['Error']['Code'] == "404":
-                if missing_ok:
-                    return False
-                else:
-                    raise ValueError(f'Object {name} does not exist')
-            else:
-                raise
-        object.delete()
-        return True
+        pass
 
     @classmethod
     def push(
@@ -129,7 +83,7 @@ class S3DocStore(AbstractDocStore):
         :param name: The bucket and key to push to. e.g. my_bucket/my_key
         :param show_progress: If true, a progress bar will be displayed.
         """
-        return cls.push_stream(iter(docs), name, show_progress)
+        pass
 
     @staticmethod
     def push_stream(
@@ -143,25 +97,7 @@ class S3DocStore(AbstractDocStore):
         :param name: The bucket and key to push to. e.g. my_bucket/my_key
         :param show_progress: If true, a progress bar will be displayed.
         """
-        bucket, name = name.split('/', 1)
-        binary_stream = _to_binary_stream(
-            docs, protocol='pickle', compress=None, show_progress=show_progress
-        )
-
-        # Upload to S3
-        with open(
-            f"s3://{bucket}/{name}.docs",
-            'wb',
-            compression='.gz',
-            transport_params={'multipart_upload': False},
-        ) as fout:
-            while True:
-                try:
-                    fout.write(next(binary_stream))
-                except StopIteration:
-                    break
-
-        return {}
+        pass
 
     @classmethod
     def pull(
@@ -178,12 +114,7 @@ class S3DocStore(AbstractDocStore):
         :param local_cache: store the downloaded DocList to local cache
         :return: a `DocList` object
         """
-        docs = docs_cls(  # type: ignore
-            cls.pull_stream(
-                docs_cls, name, show_progress=show_progress, local_cache=local_cache
-            )
-        )
-        return docs
+        pass
 
     @classmethod
     def pull_stream(
@@ -201,32 +132,4 @@ class S3DocStore(AbstractDocStore):
         :param local_cache: store the downloaded DocList to local cache
         :return: An iterator of Documents
         """
-
-        bucket, name = name.split('/', 1)
-
-        save_name = name.replace('/', '_')
-        cache_path = _get_cache_path() / f'{save_name}.docs'
-
-        source = _BufferedCachingReader(
-            open(f"s3://{bucket}/{name}.docs", 'rb', compression='.gz'),
-            cache_path=cache_path if local_cache else None,
-        )
-
-        if local_cache:
-            if cache_path.exists():
-                object_header = boto3.client('s3').head_object(
-                    Bucket=bucket, Key=name + '.docs'
-                )
-                if cache_path.stat().st_size == object_header['ContentLength']:
-                    logging.info(
-                        f'Using cached file for {name} (size: {cache_path.stat().st_size})'
-                    )
-                    source = open(cache_path, 'rb')
-
-        return _from_binary_stream(
-            docs_cls.doc_type,
-            source,
-            protocol='pickle',
-            compress=None,
-            show_progress=show_progress,
-        )
+        pass

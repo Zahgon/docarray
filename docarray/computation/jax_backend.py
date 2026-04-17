@@ -23,27 +23,13 @@ def _expand_if_single_axis(*matrices: jnp.ndarray) -> List[jnp.ndarray]:
     :return: List of the input matrices,
         where single axis matrices are expanded at dim 0.
     """
-    expanded = []
-    for m in matrices:
-        if len(m.shape) == 1:
-            expanded.append(jnp.expand_dims(m, axis=0))
-        else:
-            expanded.append(m)
-    return expanded
+    pass
 
 
-def _expand_if_scalar(arr: jnp.ndarray) -> jnp.ndarray:
-    if len(arr.shape) == 0:  # avoid scalar output
-        arr = jnp.expand_dims(arr, axis=0)
-    return arr
 
 
-def norm_left(t: jnp.ndarray) -> JaxArray:
-    return JaxArray(tensor=t)
 
 
-def norm_right(t: JaxArray) -> jnp.ndarray:
-    return t.tensor
 
 
 class JaxCompBackend(AbstractNumpyBasedBackend):
@@ -78,7 +64,7 @@ class JaxCompBackend(AbstractNumpyBasedBackend):
     @classmethod
     def none_value(cls) -> Any:
         """Provide a compatible value that represents None in JAX."""
-        return jnp.nan
+        pass
 
     @classmethod
     def detach(cls, tensor: 'JaxArray') -> 'JaxArray':
@@ -93,8 +79,7 @@ class JaxCompBackend(AbstractNumpyBasedBackend):
     @classmethod
     def dtype(cls, tensor: 'JaxArray') -> jnp.dtype:
         """Get the data type of the tensor."""
-        d_type = cls._get_tensor(tensor).dtype
-        return d_type.name
+        pass
 
     @classmethod
     def minmax_normalize(
@@ -122,16 +107,7 @@ class JaxCompBackend(AbstractNumpyBasedBackend):
         :param eps: a small jitter to avoid dividing by zero
         :return: normalized data in `t_range`
         """
-        a, b = t_range
-
-        t = jnp.asarray(cls._get_tensor(tensor), jnp.float32)
-
-        min_d = x_range[0] if x_range else jnp.min(t, axis=-1, keepdims=True)
-        max_d = x_range[1] if x_range else jnp.max(t, axis=-1, keepdims=True)
-        r = (b - a) * (t - min_d) / (max_d - min_d + eps) + a
-
-        normalized = jnp.clip(r, *((a, b) if a < b else (b, a)))
-        return cls._cast_output(jnp.asarray(normalized, cls._get_tensor(tensor).dtype))
+        pass
 
     @classmethod
     def equal(cls, tensor1: 'JaxArray', tensor2: 'JaxArray') -> bool:
@@ -143,11 +119,7 @@ class JaxCompBackend(AbstractNumpyBasedBackend):
         :return: True if two tensors are equal, False otherwise.
             If one or more of the inputs is not a TensorFlowTensor, return False.
         """
-        t1, t2 = getattr(tensor1, 'tensor', None), getattr(tensor2, 'tensor', None)
-        if isinstance(t1, jnp.ndarray) and isinstance(t2, jnp.ndarray):
-            # mypy doesn't know that tf.is_tensor implies that t1, t2 are not None
-            return t1.shape == t2.shape and jnp.all(jnp.equal(t1, t1))  # type: ignore
-        return False
+        pass
 
     class Retrieval(AbstractComputationalBackend.Retrieval[JaxArray]):
         """
@@ -229,27 +201,7 @@ class JaxCompBackend(AbstractNumpyBasedBackend):
                 The index [i_x, i_y] contains the cosine distance between
                 x_mat[i_x] and y_mat[i_y].
             """
-            comp_be = JaxCompBackend
-            x_mat_jax: jnp.ndarray = comp_be._get_tensor(x_mat)
-            y_mat_jax: jnp.ndarray = comp_be._get_tensor(y_mat)
-
-            x_mat_jax, y_mat_jax = _expand_if_single_axis(x_mat_jax, y_mat_jax)
-
-            sims = jnp.clip(
-                (jnp.dot(x_mat_jax, y_mat_jax.T) + eps)
-                / (
-                    jnp.outer(
-                        jnp.linalg.norm(x_mat_jax, axis=1),
-                        jnp.linalg.norm(y_mat_jax, axis=1),
-                    )
-                    + eps
-                ),
-                -1,
-                1,
-            ).squeeze()
-            sims = _expand_if_scalar(sims)
-
-            return comp_be._cast_output(sims)
+            pass
 
         @classmethod
         def euclidean_dist(
@@ -270,27 +222,7 @@ class JaxCompBackend(AbstractNumpyBasedBackend):
                 The index [i_x, i_y] contains the euclidian distance between
                 x_mat[i_x] and y_mat[i_y].
             """
-            comp_be = JaxCompBackend
-            x_mat_jax: jnp.ndarray = comp_be._get_tensor(x_mat)
-            y_mat_jax: jnp.ndarray = comp_be._get_tensor(y_mat)
-            if device is not None:
-                # warnings.warn('`device` is not supported for numpy operations')
-                pass
-
-            x_mat_jax, y_mat_jax = _expand_if_single_axis(x_mat_jax, y_mat_jax)
-
-            x_mat_jax_arr: JaxArray = comp_be._cast_output(x_mat_jax)
-            y_mat_jax_arr: JaxArray = comp_be._cast_output(y_mat_jax)
-
-            dists = _expand_if_scalar(
-                jnp.sqrt(
-                    comp_be._get_tensor(
-                        cls.sqeuclidean_dist(x_mat_jax_arr, y_mat_jax_arr)
-                    )
-                ).squeeze()
-            )
-
-            return comp_be._cast_output(dists)
+            pass
 
         @staticmethod
         def sqeuclidean_dist(
@@ -313,24 +245,4 @@ class JaxCompBackend(AbstractNumpyBasedBackend):
                 The index [i_x, i_y] contains the cosine Squared Euclidian between
                 x_mat[i_x] and y_mat[i_y].
             """
-            comp_be = JaxCompBackend
-            x_mat_jax: jnp.ndarray = comp_be._get_tensor(x_mat)
-            y_mat_jax: jnp.ndarray = comp_be._get_tensor(y_mat)
-            eps: float = 1e-7  # avoid problems with numerical inaccuracies
-
-            if device is not None:
-                pass
-                # warnings.warn('`device` is not supported for numpy operations')
-
-            x_mat_jax, y_mat_jax = _expand_if_single_axis(x_mat_jax, y_mat_jax)
-
-            dists = (
-                jnp.sum(y_mat_jax**2, axis=1)
-                + jnp.sum(x_mat_jax**2, axis=1)[:, jnp.newaxis]
-                - 2 * jnp.dot(x_mat_jax, y_mat_jax.T)
-            ).squeeze()
-
-            # remove numerical artifacts
-            dists = jnp.where(np.logical_and(dists < 0, dists > -eps), 0, dists)
-            dists = _expand_if_scalar(dists)
-            return comp_be._cast_output(dists)
+            pass

@@ -79,11 +79,4 @@ class TensorDisplay:
         should be in the range of 30 (min) and a given `max_width`.
         :return: the width of the table
         """
-        comp_be = self.tensor.get_comp_backend()
-        t_squeezed = comp_be.squeeze(comp_be.detach(self.tensor))
-        if comp_be.n_dim(t_squeezed) == 1 and comp_be.shape(t_squeezed)[0] < max_width:
-            min_capped = max(comp_be.shape(t_squeezed)[0], self.tensor_min_width)
-            min_max_capped = min(min_capped, max_width)
-            return min_max_capped
-        else:
-            return max_width
+        pass

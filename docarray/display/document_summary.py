@@ -27,27 +27,12 @@ class DocumentSummary:
 
     def summary(self) -> None:
         """Print non-empty fields and nested structure of this Document object."""
-        import rich
-
-        t = self._plot_recursion(node=self)
-        rich.print(t)
+        pass
 
     @staticmethod
     def schema_summary(cls: Type['BaseDoc']) -> None:
         """Print a summary of the Documents schema."""
-        from rich.console import Console
-        from rich.panel import Panel
-
-        panel = Panel(
-            DocumentSummary._get_schema(cls),
-            title='Document Schema',
-            expand=False,
-            padding=(1, 3),
-        )
-        highlighter = SchemaHighlighter()
-
-        console = Console(highlighter=highlighter, theme=highlighter.theme)
-        console.print(panel)
+        pass
 
     @staticmethod
     def _get_schema(
@@ -56,70 +41,7 @@ class DocumentSummary:
         recursion_list: Optional[List] = None,
     ) -> Tree:
         """Get Documents schema as a rich.tree.Tree object."""
-        import re
-
-        from rich.tree import Tree
-
-        from docarray import BaseDoc, DocList
-
-        if recursion_list is None:
-            recursion_list = []
-
-        if cls in recursion_list:
-            return Tree(cls.__name__)
-        else:
-            recursion_list.append(cls)
-
-        root = cls.__name__ if doc_name is None else f'{doc_name}: {cls.__name__}'
-        tree = Tree(root, highlight=True)
-
-        for field_name, value in cls._docarray_fields().items():
-            if field_name != 'id':
-                field_type = value.annotation
-                field_cls = str(field_type).replace('[', '\[')
-                field_cls = re.sub('<class \'|\'>|[a-zA-Z_]*[.]', '', field_cls)
-
-                node_name = f'{field_name}: {field_cls}'
-
-                if is_union_type(field_type) or is_optional_type(field_type):
-                    sub_tree = Tree(node_name, highlight=True)
-                    for arg in get_args(field_type):
-                        if safe_issubclass(arg, BaseDoc):
-                            sub_tree.add(
-                                DocumentSummary._get_schema(
-                                    cls=arg, recursion_list=recursion_list
-                                )
-                            )
-                        elif safe_issubclass(arg, DocList):
-                            sub_tree.add(
-                                DocumentSummary._get_schema(
-                                    cls=arg.doc_type, recursion_list=recursion_list
-                                )
-                            )
-                    tree.add(sub_tree)
-
-                elif safe_issubclass(field_type, BaseDoc):
-                    tree.add(
-                        DocumentSummary._get_schema(
-                            cls=field_type,
-                            doc_name=field_name,
-                            recursion_list=recursion_list,
-                        )
-                    )
-
-                elif safe_issubclass(field_type, DocList):
-                    sub_tree = Tree(node_name, highlight=True)
-                    sub_tree.add(
-                        DocumentSummary._get_schema(
-                            cls=field_type.doc_type, recursion_list=recursion_list
-                        )
-                    )
-                    tree.add(sub_tree)
-
-                else:
-                    tree.add(node_name)
-
-        return tree
+        pass
 
     def __rich_console__(
         self, console: 'Console', options: 'ConsoleOptions'
@@ -199,38 +121,7 @@ class DocumentSummary:
         :return: Tree with all children.
 
         """
-        from docarray import BaseDoc, DocList
-
-        tree = Tree(node) if tree is None else tree.add(node)  # type: ignore
-
-        if hasattr(node, '__dict__'):
-            nested_attrs = [
-                k
-                for k, v in node.doc.__dict__.items()
-                if isinstance(v, (DocList, BaseDoc))
-            ]
-            for attr in nested_attrs:
-                value = getattr(node.doc, attr)
-                attr_type = value.__class__.__name__
-                icon = ':diamond_with_a_dot:'
-
-                if isinstance(value, BaseDoc):
-                    icon = ':large_orange_diamond:'
-                    value = [value]
-
-                match_tree = tree.add(f'{icon} [b]{attr}: ' f'{attr_type}[/b]')
-                max_show = 2
-                for i, d in enumerate(value):
-                    if i == max_show:
-                        doc_type = d.__class__.__name__
-                        DocumentSummary._plot_recursion(
-                            f'... {len(value) - max_show} more {doc_type} documents\n',
-                            tree=match_tree,
-                        )
-                        break
-                    DocumentSummary._plot_recursion(DocumentSummary(doc=d), match_tree)
-
-        return tree
+        pass
 
 
 class SchemaHighlighter(RegexHighlighter):

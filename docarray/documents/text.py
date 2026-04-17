@@ -135,13 +135,6 @@ class TextDoc(BaseDoc):
 
     if is_pydantic_v2:
 
-        @model_validator(mode='before')
-        @classmethod
-        def validate_model_before(cls, values):
-            if isinstance(values, str):
-                return {'text': values}
-            else:
-                return values
 
     else:
 
@@ -181,5 +174,3 @@ class TextDoc(BaseDoc):
         else:
             return False
 
-    def _get_string_for_regex_filter(self):
-        return self.text

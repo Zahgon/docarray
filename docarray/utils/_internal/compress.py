@@ -67,29 +67,21 @@ def _get_compress_ctx(algorithm: Optional[str] = None) -> Optional[Callable]:
             lz4 = import_library('lz4', raise_error=True)  # noqa: F841
             from lz4 import frame
 
-        def _fun(x: IO[bytes]):
-            return frame.LZ4FrameFile(x, 'wb')
 
         compress_ctx = _fun
     elif algorithm == 'gzip':
         import gzip
 
-        def _fun(x: IO[bytes]):
-            return gzip.GzipFile(fileobj=x, mode='wb')
 
         compress_ctx = _fun
     elif algorithm == 'bz2':
         import bz2
 
-        def _fun(x: IO[bytes]):
-            return bz2.BZ2File(filename=x, mode='wb')
 
         compress_ctx = _fun
     elif algorithm == 'lzma':
         import lzma
 
-        def _fun(x: IO[bytes]):
-            return lzma.LZMAFile(filename=x, mode='wb')
 
         compress_ctx = _fun
     else:

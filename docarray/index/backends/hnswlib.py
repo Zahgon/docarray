@@ -148,16 +148,11 @@ class HnswDocumentIndex(BaseDocIndex, Generic[TSchema]):
         self._num_docs = 0  # recompute again when needed
         self._logger.info(f'{self.__class__.__name__} has been initialized')
 
-    @property
-    def index_name(self):
-        return self._db_config.work_dir  # type: ignore
 
     @property
     def out_schema(self) -> Type[BaseDoc]:
         """Return the real schema of the index."""
-        if self._is_subindex:
-            return self._ori_schema
-        return cast(Type[BaseDoc], self._schema)
+        pass
 
     ###############################################
     # Inner classes for query builder and configs #
@@ -170,7 +165,7 @@ class HnswDocumentIndex(BaseDocIndex, Generic[TSchema]):
 
         def build(self, *args, **kwargs) -> Any:
             """Build the query object."""
-            return self._queries
+            pass
 
         find = _collect_query_args('find')
         filter = _collect_query_args('filter')
@@ -221,21 +216,7 @@ class HnswDocumentIndex(BaseDocIndex, Generic[TSchema]):
         :return: the corresponding database column type,
             or None if ``python_type`` is not supported.
         """
-        for allowed_type in HNSWLIB_PY_VEC_TYPES:
-            if safe_issubclass(python_type, allowed_type):
-                return np.ndarray
-
-        # types allowed for filtering
-        type_map = {
-            int: 'INTEGER',
-            float: 'REAL',
-            str: 'TEXT',
-        }
-        for py_type, sqlite_type in type_map.items():
-            if safe_issubclass(python_type, py_type):
-                return sqlite_type
-
-        return None  # all types allowed, but no db type needed
+        pass
 
     def _index(
         self,
@@ -304,12 +285,7 @@ class HnswDocumentIndex(BaseDocIndex, Generic[TSchema]):
         :param kwargs: keyword arguments to pass to the query
         :return: the result of the query
         """
-        if args or kwargs:
-            raise ValueError(
-                f'args and kwargs not supported for `execute_query` on {type(self)}'
-            )
-
-        return self._execute_find_and_filter_query(query)
+        pass
 
     def _find_batched(
         self,
@@ -379,28 +355,6 @@ class HnswDocumentIndex(BaseDocIndex, Generic[TSchema]):
     ) -> _FindResultBatched:
         raise NotImplementedError(f'{type(self)} does not support text search.')
 
-    def _del_items(self, doc_ids: Sequence[str]):
-        # delete from the indices
-        for field_name, type_, _ in self._flatten_schema(
-            cast(Type[BaseDoc], self._schema)
-        ):
-            if safe_issubclass(type_, AnyDocArray):
-                for id in doc_ids:
-                    doc = self.__getitem__(id)
-                    sub_ids = [sub_doc.id for sub_doc in getattr(doc, field_name)]
-                    del self._subindices[field_name][sub_ids]
-
-        try:
-            for doc_id in doc_ids:
-                id_ = self._to_hashed_id(doc_id)
-                for col_name, index in self._hnsw_indices.items():
-                    index.mark_deleted(id_)
-        except RuntimeError:
-            raise KeyError(f'No document with id {doc_ids} found')
-
-        self._delete_docs_from_sqlite(doc_ids)
-        self._sqlite_conn.commit()
-        self._num_docs = 0  # recompute again when needed
 
     def _get_items(self, doc_ids: Sequence[str], out: bool = True) -> Sequence[TSchema]:
         """Get Documents from the hnswlib index, by `id`.
@@ -415,11 +369,6 @@ class HnswDocumentIndex(BaseDocIndex, Generic[TSchema]):
             raise KeyError(f'No document with id {doc_ids} found')
         return out_docs
 
-    def _doc_exists(self, doc_id: str) -> bool:
-        hash_id = self._to_hashed_id(doc_id)
-        self._sqlite_cursor.execute(f"SELECT data FROM docs WHERE doc_id = '{hash_id}'")
-        rows = self._sqlite_cursor.fetchall()
-        return len(rows) > 0
 
     def num_docs(self) -> int:
         """
@@ -446,49 +395,18 @@ class HnswDocumentIndex(BaseDocIndex, Generic[TSchema]):
 
     def _load_index(self, col_name: str, col: '_ColumnInfo') -> hnswlib.Index:
         """Load an existing HNSW index from disk."""
-        index = self._create_index_class(col)
-        index.load_index(self._hnsw_locations[col_name])
-        return index
+        pass
 
     # HNSWLib helpers
     def _create_index_class(self, col: '_ColumnInfo') -> hnswlib.Index:
         """Create an instance of hnswlib.index without initializing it."""
-        construct_params = dict(
-            (k, col.config[k]) for k in self._index_construct_params
-        )
-        if col.n_dim:
-            construct_params['dim'] = col.n_dim
-        return hnswlib.Index(**construct_params)
+        pass
 
     def _create_index(self, col_name: str, col: '_ColumnInfo') -> hnswlib.Index:
         """Create a new HNSW index for a column, and initialize it."""
-        index = self._create_index_class(col)
-        init_params = dict((k, col.config[k]) for k in self._index_init_params)
-        index.init_index(**init_params)
-        index.set_ef(col.config['ef'])
-        index.set_num_threads(col.config['num_threads'])
-        index.save_index(self._hnsw_locations[col_name])
-        return index
+        pass
 
     # SQLite helpers
-    def _create_docs_table(self):
-        columns: List[Tuple[str, str]] = []
-        for col, info in self._column_infos.items():
-            if (
-                col == 'id'
-                or '__' in col
-                or not info.db_type
-                or info.db_type == np.ndarray
-            ):
-                continue
-            columns.append((col, info.db_type))
-
-        columns_str = ', '.join(f'{name} {type}' for name, type in columns)
-        if columns_str:
-            columns_str = ', ' + columns_str
-
-        query = f'CREATE TABLE IF NOT EXISTS docs (doc_id INTEGER PRIMARY KEY, data BLOB{columns_str})'
-        self._sqlite_cursor.execute(query)
 
     def _send_docs_to_sqlite(self, docs: Sequence[BaseDoc]):
         # Generate the IDs
@@ -550,20 +468,10 @@ class HnswDocumentIndex(BaseDocIndex, Generic[TSchema]):
     def _get_docs_sqlite_hashed_id(self, hashed_ids: Sequence[int]) -> DocList:
         docs_unsorted = self._get_docs_sqlite_unsorted(hashed_ids)
 
-        def _in_position(doc):
-            return hashed_ids.index(self._to_hashed_id(doc.id))
 
         docs_cls = DocList.__class_getitem__(cast(Type[BaseDoc], self.out_schema))
         return docs_cls(sorted(docs_unsorted, key=_in_position))
 
-    def _delete_docs_from_sqlite(self, doc_ids: Sequence[Union[str, int]]):
-        ids = tuple(
-            self._to_hashed_id(id_) if isinstance(id_, str) else id_ for id_ in doc_ids
-        )
-        self._sqlite_cursor.execute(
-            'DELETE FROM docs WHERE doc_id IN (%s)' % ','.join('?' * len(ids)),
-            ids,
-        )
 
     def _get_num_docs_sqlite(self) -> int:
         self._sqlite_cursor.execute('SELECT COUNT(*) FROM docs')
@@ -606,22 +514,7 @@ class HnswDocumentIndex(BaseDocIndex, Generic[TSchema]):
         :param sub: subindex name
         :return: the root_id of the Document
         """
-        subindex = self._subindices[root]
-
-        if not sub:
-            sub_doc = subindex._get_items([id], out=False)  # type: ignore
-            parent_id = (
-                sub_doc[0]['parent_id']
-                if isinstance(sub_doc[0], dict)
-                else sub_doc[0].parent_id
-            )
-            return parent_id
-        else:
-            fields = sub.split('__')
-            cur_root_id = subindex._get_root_doc_id(
-                id, fields[0], '__'.join(fields[1:])
-            )
-            return self._get_root_doc_id(cur_root_id, root, '')
+        pass
 
     def _get_column_names(self) -> List[str]:
         """
@@ -668,7 +561,7 @@ class HnswDocumentIndex(BaseDocIndex, Generic[TSchema]):
 
         def accept_hashed_ids(id):
             """Accepts IDs that are in hashed_ids."""
-            return id in hashed_ids  # type: ignore[operator]
+            pass
 
         extra_kwargs = {'filter': accept_hashed_ids} if hashed_ids else {}
 
@@ -763,59 +656,7 @@ class HnswDocumentIndex(BaseDocIndex, Generic[TSchema]):
         :param query: A list of operations and their corresponding arguments.
         :return: A FindResult object containing filtered documents and their scores.
         """
-        # Dictionary to store the score of each document
-        doc_to_score: Dict[BaseDoc, Any] = {}
-
-        # Pre- and post-filter conditions
-        pre_filters: Dict[str, Dict] = {}
-        post_filters: Dict[str, Dict] = {}
-
-        # Define filter limits
-        pre_filter_limit = self.num_docs()
-        post_filter_limit = self.num_docs()
-
-        find_executed: bool = False
-
-        # Document list with output schema
-        out_docs: DocList = DocList[self.out_schema]()  # type: ignore[name-defined]
-
-        for op, op_kwargs in query:
-            if op == 'find':
-                hashed_ids: Optional[Set[str]] = None
-                if pre_filters:
-                    hashed_ids = self._pre_filtering(pre_filters, pre_filter_limit)
-
-                query_vector = self._get_vector_for_query_builder(op_kwargs)
-                # Perform search and filter if hashed_ids returned by pre-filtering is not empty
-                if not (pre_filters and not hashed_ids):
-                    # Returns batched output, so we need to get the first lists
-                    out_docs, scores = self._search_and_filter(  # type: ignore[assignment]
-                        queries=query_vector,
-                        limit=op_kwargs.get('limit', self.num_docs()),
-                        search_field=op_kwargs['search_field'],
-                        hashed_ids=hashed_ids,
-                    )
-                    out_docs = DocList[self.out_schema](out_docs[0])  # type: ignore[name-defined]
-                    doc_to_score.update(zip(out_docs.__getattribute__('id'), scores[0]))
-                find_executed = True
-            elif op == 'filter':
-                if find_executed:
-                    post_filters, post_filter_limit = self._update_filter_conditions(
-                        post_filters, op_kwargs, post_filter_limit
-                    )
-                else:
-                    pre_filters, pre_filter_limit = self._update_filter_conditions(
-                        pre_filters, op_kwargs, pre_filter_limit
-                    )
-            else:
-                raise ValueError(f'Query operation is not supported: {op}')
-
-        if post_filters:
-            out_docs = self._post_filtering(
-                out_docs, post_filters, post_filter_limit, find_executed
-            )
-
-        return self._prepare_out_docs(out_docs, doc_to_score)
+        pass
 
     def _update_filter_conditions(
         self, filter_conditions: Dict, operation_args: Dict, filter_limit: int
@@ -828,17 +669,7 @@ class HnswDocumentIndex(BaseDocIndex, Generic[TSchema]):
         :param filter_limit: Current filter limit.
         :return: Updated filter conditions and filter limit.
         """
-        # Use '$and' operator if filter_conditions is not empty, else use operation_args['filter_query']
-        updated_filter_conditions = (
-            {'$and': {**filter_conditions, **operation_args['filter_query']}}
-            if filter_conditions
-            else operation_args['filter_query']
-        )
-        # Update filter limit based on the operation_args limit
-        updated_filter_limit = min(
-            filter_limit, operation_args.get('limit', filter_limit)
-        )
-        return updated_filter_conditions, updated_filter_limit
+        pass
 
     def _pre_filtering(
         self, pre_filters: Dict[str, Dict], pre_filter_limit: int
@@ -850,8 +681,7 @@ class HnswDocumentIndex(BaseDocIndex, Generic[TSchema]):
         :param pre_filter_limit: Limit for the filtering.
         :return: A set of hashed IDs from the filtered rows.
         """
-        rows = self._execute_filter(filter_query=pre_filters, limit=pre_filter_limit)
-        return set(hashed_id for hashed_id, _ in rows)
+        pass
 
     def _get_vector_for_query_builder(self, find_args: Dict[str, Any]) -> np.ndarray:
         """
@@ -860,15 +690,7 @@ class HnswDocumentIndex(BaseDocIndex, Generic[TSchema]):
         :param find_args: Arguments for the 'find' operation.
         :return: A numpy array representing the query vector.
         """
-        if isinstance(find_args['query'], BaseDoc):
-            query_vec = self._get_values_by_column(
-                [find_args['query']], find_args['search_field']
-            )[0]
-        else:
-            query_vec = find_args['query']
-        query_vec_np = self._to_numpy(query_vec)
-        query_batched = np.expand_dims(query_vec_np, axis=0)
-        return query_batched
+        pass
 
     def _post_filtering(
         self,
@@ -886,16 +708,7 @@ class HnswDocumentIndex(BaseDocIndex, Generic[TSchema]):
         :param find_executed: Whether 'find' operation was executed.
         :return: Filtered documents as per the post-filter conditions.
         """
-        if not find_executed:
-            out_docs = self.filter(post_filters, limit=self.num_docs())
-        else:
-            docs_cls = DocList.__class_getitem__(cast(Type[BaseDoc], self.out_schema))
-            out_docs = docs_cls(filter_docs(out_docs, post_filters))
-
-        if post_filters:
-            out_docs = out_docs[:post_filter_limit]
-
-        return out_docs
+        pass
 
     def _prepare_out_docs(
         self, out_docs: DocList, doc_to_score: Dict[BaseDoc, Any]
@@ -907,15 +720,4 @@ class HnswDocumentIndex(BaseDocIndex, Generic[TSchema]):
         :param doc_to_score: Mapping of documents to their scores.
         :return: FindResult object with documents and their scores.
         """
-        if out_docs:
-            # If the "find" operation isn't called through the query builder,
-            # all returned scores will be 0
-            docs_and_scores = zip(
-                out_docs, (doc_to_score.get(doc.id, 0) for doc in out_docs)
-            )
-            docs_sorted = sorted(docs_and_scores, key=lambda x: x[1])
-            out_docs, out_scores = zip(*docs_sorted)
-        else:
-            out_docs, out_scores = [], []  # type: ignore[assignment]
-
-        return FindResult(documents=out_docs, scores=out_scores)
+        pass

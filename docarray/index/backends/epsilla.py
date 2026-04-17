@@ -97,75 +97,10 @@ class EpsillaDocumentIndex(BaseDocIndex, Generic[TSchema]):
             # Epsilla cloud requires table to be created in the web UI before inserting data
             # It does not support creating tables from Python client yet.
 
-    def _validate_column_info(self):
-        vector_columns = []
-        for info in self._column_infos.values():
-            for t in [list, np.ndarray, AbstractTensor]:
-                if safe_issubclass(info.docarray_type, t) and info.config.get(
-                    'is_embedding', False
-                ):
-                    # check that dimension is present
-                    if info.n_dim is None and info.config.get('dim', None) is None:
-                        raise ValueError("The dimension information is missing")
-
-                    vector_columns.append(info.docarray_type)
-                    break
-
-        if len(vector_columns) == 0:
-            raise ValueError(
-                "Unable to find any vector columns. Please make sure that at least one "
-                "column is of a vector type with the is_embedding=True attribute specified."
-            )
-        elif len(vector_columns) > 1:
-            raise ValueError("Specifying multiple vector fields is not supported.")
 
     def _create_table_self_hosted(self):
         """Use _column_infos to create a table in the database."""
-        table_fields = []
-
-        primary_keys = []
-        for column_name, column_info in self._column_infos.items():
-            if column_info.docarray_type == ID:
-                primary_keys.append(column_name)
-
-        # when there is a nested schema, we may have multiple "ID" fields. We use the presence of "__"
-        # to determine if the field is nested or not
-        if len(primary_keys) > 1:
-            sorted_pkeys = sorted(primary_keys, key=lambda x: x.count("__"))
-            primary_keys = sorted_pkeys[:1]
-
-        for column_name, column_info in self._column_infos.items():
-            dim = (
-                column_info.n_dim
-                if column_info.n_dim is not None
-                else column_info.config.get('dim', None)
-            )
-            if dim is None:
-                table_fields.append(
-                    {
-                        'name': column_name,
-                        'dataType': column_info.db_type,
-                        'primaryKey': column_name in primary_keys,
-                    }
-                )
-            else:
-                table_fields.append(
-                    {
-                        'name': column_name,
-                        'dataType': column_info.db_type,
-                        'dimensions': dim,
-                    }
-                )
-
-        status_code, response = self._db.create_table(
-            table_name=self._table_name,
-            table_fields=table_fields,
-        )
-        if status_code != HTTPStatus.OK:
-            raise IOError(
-                f"Failed to create table {self._table_name}. "
-                f"Error code: {status_code}. Error message: {response}."
-            )
+        pass
 
     @dataclass
     class Query:
@@ -200,26 +135,7 @@ class EpsillaDocumentIndex(BaseDocIndex, Generic[TSchema]):
                 filter=self._filter,
             )
 
-        def filter(self, filter_query: str):  # type: ignore[override]
-            return EpsillaDocumentIndex.QueryBuilder(
-                vector_search_field=self._vector_search_field,
-                vector_queries=self._vector_queries,
-                filter=filter_query,
-            )
 
-        def build(self, limit: int) -> Any:
-            if len(self._vector_queries) > 0:
-                # If there are multiple vector queries applied, we can average them and
-                # perform semantic search on a single vector instead
-                vector_query = np.average(self._vector_queries, axis=0)
-            else:
-                vector_query = None
-            return EpsillaDocumentIndex.Query(
-                vector_field=self._vector_search_field,
-                vector_query=vector_query,
-                filter=self._filter,
-                limit=limit,
-            )
 
         find_batched = _raise_not_composable('find_batched')
         filter_batched = _raise_not_composable('filter_batched')
@@ -263,71 +179,16 @@ class EpsillaDocumentIndex(BaseDocIndex, Generic[TSchema]):
             }
         )
 
-        def validate_config(self):
-            if self.is_self_hosted:
-                self.validate_self_hosted_config()
-            else:
-                self.validate_cloud_config()
 
-        def validate_self_hosted_config(self):
-            missing_attributes = [
-                attr
-                for attr in ["protocol", "host", "port", "db_path", "db_name"]
-                if getattr(self, attr, None) is None
-            ]
 
-            if missing_attributes:
-                raise ValueError(
-                    f"Missing required attributes for self-hosted version: {', '.join(missing_attributes)}"
-                )
-
-        def validate_cloud_config(self):
-            missing_attributes_cloud = [
-                attr
-                for attr in ["cloud_project_id", "cloud_db_id", "api_key"]
-                if getattr(self, attr, None) is None
-            ]
-
-            if missing_attributes_cloud:
-                raise ValueError(
-                    f"Missing required attributes for cloud version: {', '.join(missing_attributes_cloud)}"
-                )
 
     @dataclass
     class RuntimeConfig(BaseDocIndex.RuntimeConfig):
         # No dynamic config used
         pass
 
-    @property
-    def collection_name(self):
-        return self._db_config.table_name
 
-    @property
-    def index_name(self):
-        return self.collection_name
 
-    def python_type_to_db_type(self, python_type: Type) -> str:
-        # AbstractTensor does not have n_dims, which is required by Epsilla
-        # Use NdArray instead
-        for allowed_type in [list, np.ndarray, AbstractTensor]:
-            if safe_issubclass(python_type, allowed_type):
-                return 'VECTOR_FLOAT'
-
-        py_type_map = {
-            ID: 'STRING',
-            str: 'STRING',
-            bytes: 'STRING',
-            int: 'BIGINT',
-            float: 'FLOAT',
-            bool: 'BOOL',
-            np.ndarray: 'VECTOR_FLOAT',
-        }
-
-        for py_type, epsilla_type in py_type_map.items():
-            if safe_issubclass(python_type, py_type):
-                return epsilla_type
-
-        raise ValueError(f'Unsupported column type for {type(self)}: {python_type}')
 
     def _index(self, column_to_data: Dict[str, Generator[Any, None, None]]):
         self._index_subindex(column_to_data)
@@ -364,20 +225,8 @@ class EpsillaDocumentIndex(BaseDocIndex, Generic[TSchema]):
         Check if index is empty by comparing the number of documents to zero.
         :return: True if the index is empty, False otherwise.
         """
-        # Overriding this method to always return False because Epsilla does not have a count API for num_docs
-        return False
+        pass
 
-    def _del_items(self, doc_ids: Sequence[str]):
-        status_code, response = self._db.delete(
-            table_name=self._table_name,
-            primary_keys=list(doc_ids),
-        )
-        if status_code != HTTPStatus.OK:
-            raise IOError(
-                f"Failed to get documents with ids {doc_ids}. "
-                f"Error code: {status_code}. Error message: {response}."
-            )
-        return response['message']
 
     def _get_items(
         self, doc_ids: Sequence[str]
@@ -393,25 +242,7 @@ class EpsillaDocumentIndex(BaseDocIndex, Generic[TSchema]):
             )
         return response['result']
 
-    def execute_query(self, query: Query) -> DocList:
-        if query.vector_query is not None:
-            result = self._find_with_filter_batched(
-                queries=np.expand_dims(query.vector_query, axis=0),
-                filter=query.filter,
-                limit=query.limit,
-                search_field=query.vector_field,
-            )
-            return self._dict_list_to_docarray(result.documents[0])
-        else:
-            return self._dict_list_to_docarray(
-                self._filter(
-                    filter_query=query.filter,
-                    limit=query.limit,
-                )
-            )
 
-    def _doc_exists(self, doc_id: str) -> bool:
-        return len(self._get_items([doc_id])) > 0
 
     def _find(
         self,

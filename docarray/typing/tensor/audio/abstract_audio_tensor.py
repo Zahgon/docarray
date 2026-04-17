@@ -60,10 +60,4 @@ class AbstractAudioTensor(AbstractTensor, ABC):
         """
         Play audio data from tensor in notebook.
         """
-        if is_notebook():
-            from IPython.display import Audio, display
-
-            audio_np = self.get_comp_backend().to_numpy(self)
-            display(Audio(audio_np, rate=rate))
-        else:
-            warnings.warn('Display of audio is only possible in a notebook.')
+        pass

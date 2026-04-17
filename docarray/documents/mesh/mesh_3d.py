@@ -130,12 +130,6 @@ class Mesh3D(BaseDoc):
 
     if is_pydantic_v2:
 
-        @model_validator(mode='before')
-        @classmethod
-        def validate_model_before(cls, value):
-            if isinstance(value, str):
-                return {'url': value}
-            return value
 
     else:
 

@@ -19,19 +19,9 @@ def _unsqueeze_if_single_axis(*matrices: torch.Tensor) -> List[torch.Tensor]:
     :return: List of the input matrices,
         where single axis matrices are unsqueezed at dim 0.
     """
-    unsqueezed = []
-    for m in matrices:
-        if len(m.shape) == 1:
-            unsqueezed.append(m.unsqueeze(0))
-        else:
-            unsqueezed.append(m)
-    return unsqueezed
+    pass
 
 
-def _unsqueeze_if_scalar(t: torch.Tensor):
-    if len(t.shape) == 0:  # avoid scalar output
-        t = t.unsqueeze(0)
-    return t
 
 
 class TorchCompBackend(AbstractComputationalBackend[torch.Tensor]):
@@ -60,20 +50,6 @@ class TorchCompBackend(AbstractComputationalBackend[torch.Tensor]):
         """Return device on which the tensor is allocated."""
         return str(tensor.device)
 
-    @classmethod
-    def empty(
-        cls,
-        shape: Tuple[int, ...],
-        dtype: Optional[Any] = None,
-        device: Optional[Any] = None,
-    ) -> torch.Tensor:
-        extra_param = {}
-        if dtype is not None:
-            extra_param['dtype'] = dtype
-        if device is not None:
-            extra_param['device'] = device
-
-        return torch.empty(shape, **extra_param)
 
     @classmethod
     def n_dim(cls, array: 'torch.Tensor') -> int:
@@ -95,7 +71,7 @@ class TorchCompBackend(AbstractComputationalBackend[torch.Tensor]):
         cls,
     ) -> Any:
         """Provide a compatible value that represents None in torch."""
-        return torch.tensor(float('nan'))
+        pass
 
     @classmethod
     def shape(cls, tensor: 'torch.Tensor') -> Tuple[int, ...]:
@@ -123,10 +99,7 @@ class TorchCompBackend(AbstractComputationalBackend[torch.Tensor]):
         :return: True if two tensors are equal, False otherwise.
             If one or more of the inputs is not a torch.Tensor, return False.
         """
-        are_torch = isinstance(tensor1, torch.Tensor) and isinstance(
-            tensor2, torch.Tensor
-        )
-        return are_torch and torch.equal(tensor1, tensor2)
+        pass
 
     @classmethod
     def detach(cls, tensor: 'torch.Tensor') -> 'torch.Tensor':
@@ -141,12 +114,12 @@ class TorchCompBackend(AbstractComputationalBackend[torch.Tensor]):
     @classmethod
     def dtype(cls, tensor: 'torch.Tensor') -> torch.dtype:
         """Get the data type of the tensor."""
-        return tensor.dtype
+        pass
 
     @classmethod
     def isnan(cls, tensor: 'torch.Tensor') -> 'torch.Tensor':
         """Check element-wise for nan and return result as a boolean array"""
-        return torch.isnan(tensor)
+        pass
 
     @classmethod
     def minmax_normalize(
@@ -174,18 +147,7 @@ class TorchCompBackend(AbstractComputationalBackend[torch.Tensor]):
         :param eps: a small jitter to avoid divide by zero
         :return: normalized data in `t_range`
         """
-        a, b = t_range
-
-        min_d = (
-            x_range[0] if x_range else torch.min(tensor, dim=-1, keepdim=True).values
-        )
-        max_d = (
-            x_range[1] if x_range else torch.max(tensor, dim=-1, keepdim=True).values
-        )
-        r = (b - a) * (tensor - min_d) / (max_d - min_d + eps) + a
-
-        normalized = torch.clip(r, *((a, b) if a < b else (b, a)))
-        return normalized.to(tensor.dtype)
+        pass
 
     class Retrieval(AbstractComputationalBackend.Retrieval[torch.Tensor]):
         """
@@ -253,17 +215,7 @@ class TorchCompBackend(AbstractComputationalBackend[torch.Tensor]):
                 The index [i_x, i_y] contains the cosine distance between
                 x_mat[i_x] and y_mat[i_y].
             """
-            if device is not None:
-                x_mat = x_mat.to(device)
-                y_mat = y_mat.to(device)
-
-            x_mat, y_mat = _unsqueeze_if_single_axis(x_mat, y_mat)
-
-            a_n, b_n = x_mat.norm(dim=1)[:, None], y_mat.norm(dim=1)[:, None]
-            a_norm = x_mat / torch.clamp(a_n, min=eps)
-            b_norm = y_mat / torch.clamp(b_n, min=eps)
-            sims = torch.mm(a_norm, b_norm.transpose(0, 1)).squeeze()
-            return _unsqueeze_if_scalar(sims)
+            pass
 
         @staticmethod
         def euclidean_dist(
@@ -283,14 +235,7 @@ class TorchCompBackend(AbstractComputationalBackend[torch.Tensor]):
                 The index [i_x, i_y] contains the euclidian distance between
                 x_mat[i_x] and y_mat[i_y].
             """
-            if device is not None:
-                x_mat = x_mat.to(device)
-                y_mat = y_mat.to(device)
-
-            x_mat, y_mat = _unsqueeze_if_single_axis(x_mat, y_mat)
-
-            dists = torch.cdist(x_mat, y_mat).squeeze()
-            return _unsqueeze_if_scalar(dists)
+            pass
 
         @staticmethod
         def sqeuclidean_dist(
@@ -312,10 +257,4 @@ class TorchCompBackend(AbstractComputationalBackend[torch.Tensor]):
                 The index [i_x, i_y] contains the cosine Squared Euclidian between
                 x_mat[i_x] and y_mat[i_y].
             """
-            if device is not None:
-                x_mat = x_mat.to(device)
-                y_mat = y_mat.to(device)
-
-            x_mat, y_mat = _unsqueeze_if_single_axis(x_mat, y_mat)
-
-            return _unsqueeze_if_scalar((torch.cdist(x_mat, y_mat) ** 2).squeeze())
+            pass

@@ -186,7 +186,7 @@ class TorchTensor(
         Convert `TorchTensor` into a json compatible object
         :return: a representation of the tensor compatible with orjson
         """
-        return self.detach().numpy()  # might need to check device later
+        pass
 
     def unwrap(self) -> torch.Tensor:
         """
@@ -320,4 +320,4 @@ class TorchTensor(
         This method enables the deepcopy of `TorchTensor` by returning another instance of this subclass.
         If this function is not implemented, the deepcopy will throw an RuntimeError from Torch.
         """
-        return self.__class__(*args, **kwargs)
+        pass

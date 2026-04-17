@@ -121,34 +121,14 @@ class ListAdvancedIndexing(List[T_item]):
             results.append(self[ix])
         return self.__class__(results)
 
-    def _set_by_indices(self: T, item: Iterable[int], value: Iterable[T_item]):
-        for ix, doc_to_set in zip(item, value):
-            try:
-                self[ix] = doc_to_set
-            except KeyError:
-                raise IndexError(f'Index {ix} is out of range')
 
     def _get_from_mask(self: T, item: Iterable[bool]) -> T:
         return self.__class__(
             [doc for doc, mask_value in zip(self, item) if mask_value]
         )
 
-    def _set_by_mask(self: T, item: Iterable[bool], value: Sequence[T_item]):
-        i_value = 0
-        for i, mask_value in zip(range(len(self)), item):
-            if mask_value:
-                self[i] = value[i_value]
-                i_value += 1
 
-    def _del_from_mask(self: T, item: Iterable[bool]) -> None:
-        idx_to_delete = [i for i, val in enumerate(item) if val]
-        self._del_from_indices(idx_to_delete)
 
-    def _del_from_indices(self: T, item: Iterable[int]) -> None:
-        for ix in sorted(item, reverse=True):
-            # reversed is needed here otherwise some the indices are not up to date after
-            # each delete
-            del self[ix]
 
     def __delitem__(self, key: Union[SupportsIndex, IndexIterType]) -> None:
         item = self._normalize_index_item(key)
