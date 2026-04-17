@@ -13,7 +13,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-__version__ = '0.40.2'
+__version__ = '0.40.1'
 
 import logging
 
@@ -23,8 +23,12 @@ from docarray.utils._internal.misc import _get_path_from_docarray_root_level
 from docarray.utils._internal.pydantic import is_pydantic_v2
 
 
+def unpickle_doclist(doc_type, b):
+    return DocList[doc_type].from_bytes(b, protocol="protobuf")
 
 
+def unpickle_docvec(doc_type, tensor_type, b):
+    return DocVec[doc_type].from_bytes(b, protocol="protobuf", tensor_type=tensor_type)
 
 
 if is_pydantic_v2:
@@ -35,6 +39,9 @@ if is_pydantic_v2:
 
         unpickle_doc_fn = partial(BaseDoc.from_bytes, protocol="protobuf")
 
+        def pickle_doc(doc):
+            b = doc.to_bytes(protocol='protobuf')
+            return unpickle_doc_fn, (doc.__class__, b)
 
         # Register BaseDoc serialization
         copyreg.pickle(BaseDoc, pickle_doc)
@@ -47,6 +54,8 @@ if is_pydantic_v2:
             return unpickle_doclist, (doc_type, b)
 
         # Replace DocList.__reduce__ with a method that returns the correct format
+        def doclist_reduce(self):
+            return pickle_doclist(self)
 
         DocList.__reduce__ = doclist_reduce
 
@@ -59,6 +68,8 @@ if is_pydantic_v2:
             return unpickle_docvec, (doc_type, tensor_type, b)
 
         # Replace DocList.__reduce__ with a method that returns the correct format
+        def docvec_reduce(self):
+            return pickle_docvec(self)
 
         DocVec.__reduce__ = docvec_reduce
 
